@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<style>
+@keyframes scrIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)}}
+@keyframes scrInSoft{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(22,163,74,.55)}70%{box-shadow:0 0 0 12px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+@keyframes ringSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes ringPop{0%{transform:scale(.6);opacity:0}55%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes drawCircle{from{stroke-dashoffset:302}to{stroke-dashoffset:0}}
+@keyframes drawCheck{from{stroke-dashoffset:70}to{stroke-dashoffset:0}}
+@keyframes flashOut{from{opacity:.92}to{opacity:0}}
+@keyframes shake{10%,90%{transform:translateX(-3px)}20%,80%{transform:translateX(5px)}30%,50%,70%{transform:translateX(-8px)}40%,60%{transform:translateX(8px)}}
+@keyframes bar{from{width:100%}to{width:0%}}
+@keyframes countIn{0%{transform:scale(1.6);opacity:0}30%{transform:scale(1);opacity:1}100%{transform:scale(.94);opacity:.85}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+body{margin:0;background:#0f1115;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#2563eb}a:hover{color:#1d4ed8}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:40px 20px;background:radial-gradient(120% 100% at 50% 0%,#1b1f27 0%,#0f1115 70%)">
+
+  <div style="width:1348px;max-width:100%;padding:32px 34px 38px;background:linear-gradient(#1c2027,#12151a);border-radius:36px;box-shadow:0 40px 90px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06)">
+    <div style="position:relative;width:1280px;height:800px;max-width:100%;background:#f6f7f9;border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+
+      <div style="position:relative;flex:1;overflow:hidden">
+
+        <sc-if value="{{ isPin }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;inset:0;display:flex;animation:scrIn 220ms cubic-bezier(.22,.7,.3,1) both">
+            <div style="flex:1;padding:56px 60px;display:flex;flex-direction:column;justify-content:space-between;background:#fff">
+              <div>
+                <div style="font:600 12px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#94a3b8;text-transform:uppercase">Recepción · Torre Norte</div>
+                <div style="margin-top:22px;font:600 46px/1.05 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.02em">Ingresa tu PIN</div>
+                <div style="margin-top:14px;font:400 20px/1.5 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#64748b;max-width:380px">Cuatro dígitos. Si no lo recuerdas, acércate al puesto de recepción.</div>
+              </div>
+              <div style="display:flex;gap:20px">
+                <sc-for list="{{ dots }}" as="d" hint-placeholder-count="4">
+                  <div style="width:26px;height:26px;border-radius:50%;transition:transform 160ms cubic-bezier(.22,.7,.3,1),background 160ms;background:{{ d.bg }};transform:{{ d.sc }}"></div>
+                </sc-for>
+              </div>
+              <div style="min-height:96px">
+                <sc-if value="{{ pinError }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:12px;padding:18px 22px;border-radius:12px;background:#fef2f2;border:1px solid #fecaca;animation:shake 420ms both">
+                    <div style="width:10px;height:10px;border-radius:50%;background:#dc2626"></div>
+                    <div style="font:600 19px/1.2 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#dc2626">PIN no reconocido. Intenta de nuevo.</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ showHints }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <div style="font:600 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.14em;color:#cbd5e1;text-transform:uppercase">Demo · toca un caso</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px">
+                      <sc-for list="{{ demoPins }}" as="h" hint-placeholder-count="4">
+                        <button type="button" onClick="{{ h.onPress }}" style="cursor:pointer;border:1px solid #e2e8f0;background:#f8fafc;border-radius:9px;padding:9px 12px;font:500 12px/1.2 ui-monospace,Menlo,monospace;color:#475569" style-hover="background:#eff4ff;border-color:#bfd3fd;color:#1d4ed8">{{ h.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <div style="width:560px;padding:48px 56px 48px 0;display:flex;align-items:center">
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%">
+                <sc-for list="{{ keys }}" as="k" hint-placeholder-count="12">
+                  <button type="button" onClick="{{ k.onPress }}" style="height:104px;cursor:pointer;border:1px solid #e2e8f0;border-radius:14px;background:#fff;font:300 40px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;box-shadow:0 1px 2px rgba(15,23,42,.06);transition:transform 90ms,background 120ms" style-hover="background:#f1f5f9" style-active="transform:scale(.96);background:#e6edfb">{{ k.k }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isRec }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;gap:56px;animation:scrIn 220ms cubic-bezier(.22,.7,.3,1) both">
+            <div style="width:260px;height:320px;border-radius:16px;overflow:hidden;background:repeating-linear-gradient(135deg,#eef2f7 0 12px,#e3e9f1 12px 24px);display:flex;align-items:flex-end;padding:16px;box-sizing:border-box;box-shadow:0 12px 30px rgba(15,23,42,.1)">
+              <div style="font:500 11px/1.4 ui-monospace,Menlo,monospace;color:#94a3b8">foto de referencia<br>{{ empPhotoNote }}</div>
+            </div>
+            <div style="max-width:460px">
+              <div style="display:inline-flex;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;background:#ecfdf3;border:1px solid #bbf7d0;font:600 13px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#15803d;letter-spacing:.04em">PIN VERIFICADO</div>
+              <div style="margin-top:20px;font:600 56px/1.05 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.025em">{{ empName }}</div>
+              <div style="margin-top:12px;font:400 22px/1.4 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#64748b">{{ empRole }} · Legajo {{ empId }}</div>
+              <div style="margin-top:34px;display:flex;align-items:center;gap:14px;font:400 16px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#94a3b8">
+                <div style="width:22px;height:22px;border-radius:50%;border:2px solid #dbe3ee;border-top-color:#2563eb;animation:ringSpin 700ms linear infinite"></div>
+                Cargando opciones…
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isOverdue }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;animation:scrIn 220ms cubic-bezier(.22,.7,.3,1) both">
+            <div style="width:820px;padding:44px 48px;border-radius:18px;background:#fffbeb;border:1px solid #fde68a;animation:scrInSoft 260ms cubic-bezier(.22,.7,.3,1) both">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:14px;height:14px;border-radius:50%;background:#d97706"></div>
+                <div style="font:600 12px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#b45309;text-transform:uppercase">Aviso · no bloquea tu registro</div>
+              </div>
+              <div style="margin-top:22px;font:600 38px/1.2 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#78350f;letter-spacing:-.02em;text-wrap:pretty">Tu salida del {{ overdueDate }} a las {{ overdueTime }} quedó sin registro de regreso.</div>
+              <div style="margin-top:16px;font:400 22px/1.5 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#92400e">Será revisada por RRHH. Puedes continuar con tu entrada de hoy normalmente.</div>
+              <button type="button" onClick="{{ onAckOverdue }}" style="margin-top:36px;height:76px;padding:0 46px;cursor:pointer;border:0;border-radius:14px;background:#d97706;color:#fff;font:600 24px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;box-shadow:0 8px 20px rgba(217,119,6,.3);transition:transform 90ms,background 120ms" style-hover="background:#b45309" style-active="transform:scale(.97)">Entendido</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isAction }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:#fff;padding:52px 60px;box-sizing:border-box;display:flex;flex-direction:column;animation:scrIn 220ms cubic-bezier(.22,.7,.3,1) both">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font:600 12px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#94a3b8;text-transform:uppercase">Hola, {{ empFirst }}</div>
+                <div style="margin-top:12px;font:600 40px/1.1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.02em">¿Qué vas a registrar?</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font:300 52px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.02em">{{ clock }}</div>
+                <div style="margin-top:8px;font:400 15px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#94a3b8">{{ today }}</div>
+              </div>
+            </div>
+            <div style="margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:22px">
+              <button type="button" onClick="{{ onEntrada }}" style="height:250px;cursor:pointer;border:0;border-radius:18px;background:#16a34a;color:#fff;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:30px;text-align:left;box-shadow:0 14px 30px rgba(22,163,74,.28);transition:transform 110ms,filter 140ms" style-hover="filter:brightness(1.06)" style-active="transform:scale(.975)">
+                <div style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.5);margin-bottom:auto"></div>
+                <div style="font:600 36px/1.1 'Helvetica Neue',Helvetica,Arial,sans-serif;letter-spacing:-.01em">Entrada</div>
+                <div style="margin-top:8px;font:400 17px/1.3 'Helvetica Neue',Helvetica,Arial,sans-serif;opacity:.85">Inicio de jornada</div>
+              </button>
+              <button type="button" onClick="{{ onSalida }}" style="height:250px;cursor:pointer;border:0;border-radius:18px;background:#2563eb;color:#fff;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:30px;text-align:left;box-shadow:0 14px 30px rgba(37,99,235,.28);transition:transform 110ms,filter 140ms" style-hover="filter:brightness(1.06)" style-active="transform:scale(.975)">
+                <div style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.5);margin-bottom:auto"></div>
+                <div style="font:600 36px/1.1 'Helvetica Neue',Helvetica,Arial,sans-serif;letter-spacing:-.01em">Salida</div>
+                <div style="margin-top:8px;font:400 17px/1.3 'Helvetica Neue',Helvetica,Arial,sans-serif;opacity:.85">Fin de jornada</div>
+              </button>
+              <button type="button" onClick="{{ onOcasional }}" style="height:250px;cursor:pointer;border:2px solid #fcd34d;border-radius:18px;background:#fffbeb;color:#92400e;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:28px;text-align:left;transition:transform 110ms,background 140ms" style-hover="background:#fef3c7" style-active="transform:scale(.975)">
+                <div style="width:20px;height:20px;border-radius:50%;background:#d97706;margin-bottom:auto"></div>
+                <div style="font:600 36px/1.1 'Helvetica Neue',Helvetica,Arial,sans-serif;letter-spacing:-.01em">Salida ocasional</div>
+                <div style="margin-top:8px;font:400 17px/1.3 'Helvetica Neue',Helvetica,Arial,sans-serif;opacity:.8">Con regreso el mismo día</div>
+              </button>
+            </div>
+            <button type="button" onClick="{{ onCancel }}" style="margin-top:26px;align-self:flex-start;height:64px;padding:0 28px;cursor:pointer;border:1px solid #e2e8f0;border-radius:12px;background:#fff;font:500 19px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#64748b" style-hover="background:#f1f5f9">No soy {{ empFirst }}</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isReason }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:#fff;padding:52px 60px;box-sizing:border-box;display:flex;flex-direction:column;animation:scrIn 220ms cubic-bezier(.22,.7,.3,1) both">
+            <div style="font:600 12px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#b45309;text-transform:uppercase">Salida ocasional · paso 1 de 3</div>
+            <div style="margin-top:14px;font:600 42px/1.1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.02em">Motivo de la salida</div>
+            <div style="margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+              <sc-for list="{{ reasons }}" as="r" hint-placeholder-count="4">
+                <button type="button" onClick="{{ r.onPress }}" style="height:140px;cursor:pointer;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;display:flex;align-items:center;gap:20px;padding:0 30px;text-align:left;transition:transform 100ms,background 140ms,border-color 140ms" style-hover="background:#fffbeb;border-color:#fcd34d" style-active="transform:scale(.98)">
+                  <div style="width:16px;height:16px;border-radius:50%;background:#d97706;flex:none"></div>
+                  <div style="font:500 30px/1.15 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a">{{ r.label }}</div>
+                </button>
+              </sc-for>
+            </div>
+            <button type="button" onClick="{{ onBackToAction }}" style="margin-top:30px;align-self:flex-start;height:64px;padding:0 28px;cursor:pointer;border:1px solid #e2e8f0;border-radius:12px;background:#fff;font:500 19px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#64748b" style-hover="background:#f1f5f9">Volver</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isBackTime }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:#fff;display:flex;animation:scrIn 220ms cubic-bezier(.22,.7,.3,1) both">
+            <div style="flex:1;padding:52px 60px;display:flex;flex-direction:column">
+              <div style="font:600 12px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#b45309;text-transform:uppercase">Salida ocasional · paso 2 de 3</div>
+              <div style="margin-top:14px;font:600 42px/1.1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.02em">Hora de regreso esperada</div>
+              <div style="margin-top:10px;font:400 20px/1.4 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#64748b">Motivo: {{ reason }}</div>
+              <div style="margin-top:38px;font:200 96px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:.02em;font-variant-numeric:tabular-nums">{{ backTimeDisplay }}</div>
+              <div style="margin-top:30px;display:flex;gap:14px">
+                <sc-for list="{{ quickTimes }}" as="q" hint-placeholder-count="3">
+                  <button type="button" onClick="{{ q.onPress }}" style="height:68px;padding:0 26px;cursor:pointer;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;font:500 19px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#334155" style-hover="background:#eff4ff;border-color:#bfd3fd;color:#1d4ed8">{{ q.label }}</button>
+                </sc-for>
+              </div>
+              <div style="margin-top:auto;display:flex;gap:16px">
+                <button type="button" onClick="{{ onBackToReason }}" style="height:76px;padding:0 30px;cursor:pointer;border:1px solid #e2e8f0;border-radius:14px;background:#fff;font:500 20px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#64748b" style-hover="background:#f1f5f9">Volver</button>
+                <button type="button" onClick="{{ onConfirmBackTime }}" style="height:76px;padding:0 44px;cursor:pointer;border:0;border-radius:14px;background:#2563eb;color:#fff;font:600 23px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;box-shadow:0 10px 24px rgba(37,99,235,.28);opacity:{{ backTimeOpacity }};transition:transform 90ms,filter 140ms" style-hover="filter:brightness(1.07)" style-active="transform:scale(.97)">Continuar a la foto</button>
+              </div>
+            </div>
+            <div style="width:520px;padding:44px 56px 44px 0;display:flex;align-items:center">
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%">
+                <sc-for list="{{ keys }}" as="k" hint-placeholder-count="12">
+                  <button type="button" onClick="{{ k.onPress }}" style="height:96px;cursor:pointer;border:1px solid #e2e8f0;border-radius:14px;background:#fff;font:300 36px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;transition:transform 90ms,background 120ms" style-hover="background:#f1f5f9" style-active="transform:scale(.96);background:#e6edfb">{{ k.k }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isReturn }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;animation:scrIn 220ms cubic-bezier(.22,.7,.3,1) both">
+            <div style="width:900px;display:flex;gap:48px;align-items:center">
+              <div style="width:200px;height:250px;border-radius:14px;flex:none;background:repeating-linear-gradient(135deg,#eef2f7 0 12px,#e3e9f1 12px 24px)"></div>
+              <div>
+                <div style="display:inline-flex;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;background:#fffbeb;border:1px solid #fde68a;font:600 13px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#b45309;letter-spacing:.04em">SALIDA OCASIONAL ABIERTA</div>
+                <div style="margin-top:20px;font:600 48px/1.1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.025em">Confirmar regreso</div>
+                <div style="margin-top:18px;font:400 22px/1.6 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#475569;max-width:520px">Salida registrada hoy a las <strong style="color:#0f172a">{{ openOutTime }}</strong> por <strong style="color:#0f172a">{{ openReason }}</strong>. Regreso esperado: {{ openBack }}.</div>
+                <div style="margin-top:34px;display:flex;gap:16px">
+                  <button type="button" onClick="{{ onConfirmReturn }}" style="height:80px;padding:0 42px;cursor:pointer;border:0;border-radius:14px;background:#16a34a;color:#fff;font:600 24px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;box-shadow:0 10px 24px rgba(22,163,74,.28);transition:transform 90ms,filter 140ms" style-hover="filter:brightness(1.06)" style-active="transform:scale(.97)">Sí, ya regresé</button>
+                  <button type="button" onClick="{{ onCancel }}" style="height:80px;padding:0 30px;cursor:pointer;border:1px solid #e2e8f0;border-radius:14px;background:#fff;font:500 20px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#64748b" style-hover="background:#f1f5f9">Cancelar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isCam }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:#0f1115;display:flex;align-items:center;justify-content:center;animation:fadeIn 180ms both">
+            <div style="position:absolute;inset:0;background:repeating-linear-gradient(120deg,#1a1e26 0 18px,#161a21 18px 36px)"></div>
+            <div style="position:absolute;top:38px;left:44px;display:flex;align-items:center;gap:12px">
+              <div style="width:12px;height:12px;border-radius:50%;background:#dc2626;animation:pulseDot 1.4s ease-out infinite"></div>
+              <div style="font:600 13px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#e2e8f0;text-transform:uppercase">{{ camLabel }}</div>
+            </div>
+            <div style="position:relative;width:420px;height:520px;border-radius:210px/260px;border:3px dashed rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center">
+              <div style="position:absolute;inset:26px;border-radius:180px/230px;background:radial-gradient(60% 60% at 50% 40%,rgba(255,255,255,.08),transparent)"></div>
+              {{ countNode }}
+            </div>
+            <div style="position:absolute;bottom:54px;left:0;right:0;text-align:center;font:400 22px/1.4 'Helvetica Neue',Helvetica,Arial,sans-serif;color:rgba(255,255,255,.72)">Mira a la cámara. La captura es automática.</div>
+            <sc-if value="{{ flash }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;inset:0;background:#fff;animation:flashOut 420ms ease-out both"></div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isConfirm }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;animation:scrIn 220ms cubic-bezier(.22,.7,.3,1) both">
+            <div style="width:960px;display:flex;align-items:center;gap:64px">
+              <div style="flex:none;animation:ringPop 420ms cubic-bezier(.22,.7,.3,1) both">
+                <svg width="180" height="180" viewBox="0 0 120 120" aria-hidden="true">
+                  <circle cx="60" cy="60" r="48" fill="none" stroke="{{ confirmColor }}" stroke-width="6" stroke-linecap="round" stroke-dasharray="302" style="animation:drawCircle 520ms cubic-bezier(.4,0,.2,1) 80ms both;transform:rotate(-90deg);transform-origin:60px 60px"></circle>
+                  <path d="M39 61 L54 76 L82 46" fill="none" stroke="{{ confirmColor }}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="70" style="animation:drawCheck 340ms cubic-bezier(.4,0,.2,1) 460ms both"></path>
+                </svg>
+              </div>
+              <div style="flex:1">
+                <div style="font:600 12px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#94a3b8;text-transform:uppercase">{{ empName }} · {{ today }}</div>
+                <div style="margin-top:16px;font:600 46px/1.1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.025em">{{ confirmTitle }}</div>
+                <div style="margin-top:22px;font:200 108px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.02em;font-variant-numeric:tabular-nums">{{ confirmTime }}</div>
+                <div style="margin-top:24px;display:flex;flex-wrap:wrap;gap:12px">
+                  <sc-if value="{{ hasPill }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:inline-flex;align-items:center;gap:10px;height:56px;padding:0 24px;border-radius:999px;background:{{ pillBg }};color:{{ pillFg }};font:600 22px/1 'Helvetica Neue',Helvetica,Arial,sans-serif">{{ pillText }}</div>
+                  </sc-if>
+                  <sc-if value="{{ hasMeta }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:inline-flex;align-items:center;height:56px;padding:0 24px;border-radius:999px;background:#f1f5f9;color:#475569;font:500 20px/1 'Helvetica Neue',Helvetica,Arial,sans-serif">{{ metaText }}</div>
+                  </sc-if>
+                </div>
+                <div style="margin-top:30px;font:400 18px/1.5 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#94a3b8">{{ syncNote }}</div>
+                <div style="margin-top:26px;height:6px;border-radius:3px;background:#eef2f7;overflow:hidden">
+                  <div style="height:100%;background:#cbd5e1;animation:bar {{ autoBarMs }} linear both"></div>
+                </div>
+                <div style="margin-top:12px;font:400 15px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#cbd5e1">Volviendo al teclado…</div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+
+      <div style="height:76px;flex:none;background:#0f172a;display:flex;align-items:center;justify-content:space-between;padding:0 34px">
+        <button type="button" onClick="{{ onToggleNet }}" style="display:flex;align-items:center;gap:14px;cursor:pointer;border:0;background:transparent;padding:8px 4px">
+          <div style="width:12px;height:12px;border-radius:50%;background:{{ netDot }};animation:{{ netAnim }}"></div>
+          <div style="font:600 15px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;color:#e2e8f0;letter-spacing:.03em">{{ netLabel }}</div>
+        </button>
+        <div style="display:flex;align-items:center;gap:26px">
+          <div style="font:500 15px/1 ui-monospace,Menlo,monospace;color:{{ pendFg }}">{{ pendLabel }}</div>
+          <div style="width:1px;height:26px;background:rgba(255,255,255,.14)"></div>
+          <div style="font:500 15px/1 ui-monospace,Menlo,monospace;color:#64748b">Terminal REC-01 · v2.4</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;max-width:1100px">
+    <div style="font:500 12px/1 ui-monospace,Menlo,monospace;color:#64748b;letter-spacing:.1em;text-transform:uppercase">Recorridos de prueba</div>
+    <sc-for list="{{ demoPins }}" as="h" hint-placeholder-count="4">
+      <button type="button" onClick="{{ h.onPress }}" style="cursor:pointer;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);border-radius:9px;padding:10px 14px;font:500 12px/1.2 ui-monospace,Menlo,monospace;color:#cbd5e1" style-hover="background:rgba(255,255,255,.12);color:#fff">{{ h.label }}</button>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startOffline&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Terminal&quot;},&quot;autoReturnSeconds&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:3,&quot;min&quot;:2,&quot;max&quot;:10,&quot;step&quot;:1,&quot;unit&quot;:&quot;s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Terminal&quot;},&quot;showDemoHints&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo&quot;}}">
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.timers = [];
+    this.iv = null;
+    this.employees = [
+      { pin: '1024', name: 'Ana Torres', role: 'Diseño', id: 'A-2041', lateMin: 7, note: 'Ana T.' },
+      { pin: '2048', name: 'Carlos Ruiz', role: 'Operaciones', id: 'A-1188', lateMin: 0, note: 'Carlos R.',
+        openExit: { time: '11:20', reason: 'Cita médica', back: '13:00' } },
+      { pin: '3072', name: 'Marta Gómez', role: 'Logística', id: 'A-3390', lateMin: 0, note: 'Marta G.',
+        overdue: { date: '13 ago', time: '15:40' } },
+      { pin: '4096', name: 'Luis Prieto', role: 'Planta', id: 'A-0765', lateMin: 0, note: 'Luis P.' }
+    ];
+    this.state = {
+      screen: 'pin', pin: '', pinError: false, emp: null, mode: null,
+      reason: null, backDigits: '', count: 3, flash: false,
+      online: !(p && p.startOffline), pending: (p && p.startOffline) ? 3 : 0,
+      confirm: null, now: new Date()
+    };
+  }
+  componentDidMount() { this.clockIv = setInterval(() => this.setState({ now: new Date() }), 20000); }
+  componentWillUnmount() { this.clear(); clearInterval(this.clockIv); }
+  clear() { this.timers.forEach(clearTimeout); this.timers = []; if (this.iv) { clearInterval(this.iv); this.iv = null; } }
+  t(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  go(screen, extra) { this.clear(); this.setState(Object.assign({ screen: screen }, extra || {})); }
+  fmt(d) { return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+
+  key(k) {
+    const s = this.state;
+    if (s.screen === 'pin') {
+      if (k === 'C') return this.setState({ pin: '', pinError: false });
+      if (k === '⌫') return this.setState({ pin: s.pin.slice(0, -1), pinError: false });
+      if (s.pin.length >= 4) return;
+      const pin = s.pin + k;
+      this.setState({ pin: pin, pinError: false });
+      if (pin.length === 4) this.t(() => this.submitPin(pin), 220);
+      return;
+    }
+    if (s.screen === 'backTime') {
+      if (k === 'C') return this.setState({ backDigits: '' });
+      if (k === '⌫') return this.setState({ backDigits: s.backDigits.slice(0, -1) });
+      if (s.backDigits.length >= 4) return;
+      this.setState({ backDigits: s.backDigits + k });
+    }
+  }
+
+  fillDemo(pin) {
+    this.clear();
+    this.setState({ screen: 'pin', pin: pin, pinError: false });
+    this.t(() => this.submitPin(pin), 380);
+  }
+
+  submitPin(pin) {
+    const emp = this.employees.find(e => e.pin === pin);
+    if (!emp) return this.setState({ pin: '', pinError: true });
+    this.go('recognize', { emp: emp, pin: '', pinError: false });
+    this.t(() => {
+      if (emp.overdue) this.go('overdue');
+      else if (emp.openExit) this.go('return');
+      else this.go('action');
+    }, 1500);
+  }
+
+  startCamera(mode, extra) {
+    this.go('camera', Object.assign({ mode: mode, count: 3, flash: false }, extra || {}));
+    this.iv = setInterval(() => {
+      const c = this.state.count - 1;
+      if (c > 0) return this.setState({ count: c });
+      clearInterval(this.iv); this.iv = null;
+      this.setState({ count: 0, flash: true });
+      this.t(() => this.finish(mode), 520);
+    }, 900);
+  }
+
+  finish(mode) {
+    const s = this.state, emp = s.emp, time = this.fmt(new Date());
+    let c;
+    if (mode === 'in') {
+      c = { title: 'Entrada registrada', time: time, color: '#16a34a',
+        pill: emp.lateMin > 0 ? { text: 'Tarde · ' + emp.lateMin + ' min', bg: '#fffbeb', fg: '#b45309' }
+                              : { text: 'A tiempo', bg: '#ecfdf3', fg: '#15803d' } };
+    } else if (mode === 'out') {
+      c = { title: 'Salida registrada', time: time, color: '#2563eb', meta: 'Fin de jornada' };
+    } else if (mode === 'occ') {
+      c = { title: 'Salida ocasional registrada', time: time, color: '#d97706',
+        pill: { text: s.reason, bg: '#fffbeb', fg: '#b45309' },
+        meta: 'Regreso esperado ' + this.backTime() };
+      emp.openExit = { time: time, reason: s.reason, back: this.backTime() };
+    } else {
+      c = { title: 'Regreso confirmado', time: time, color: '#16a34a',
+        pill: { text: 'Salida cerrada', bg: '#ecfdf3', fg: '#15803d' },
+        meta: 'Salió ' + (emp.openExit ? emp.openExit.time : '') + ' · ' + (emp.openExit ? emp.openExit.reason : '') };
+      emp.openExit = null;
+    }
+    const pending = this.state.pending + 1;
+    this.go('confirm', { confirm: c, pending: pending, flash: false });
+    if (this.state.online) this.t(() => this.setState(st => ({ pending: Math.max(0, st.pending - 1) })), 2000);
+    this.t(() => this.go('pin', { pin: '', emp: null, mode: null, reason: null, backDigits: '', confirm: null }), this.autoMs());
+  }
+
+  autoMs() { return (this.props.autoReturnSeconds || 3) * 1000; }
+
+  backTime() {
+    const d = this.state.backDigits;
+    if (d.length === 4) return d.slice(0, 2) + ':' + d.slice(2);
+    return d.padEnd(4, '0').slice(0, 2) + ':' + d.padEnd(4, '0').slice(2);
+  }
+
+  quick(mins) {
+    const d = new Date(Date.now() + mins * 60000);
+    this.setState({ backDigits: String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') });
+  }
+
+  renderVals() {
+    const s = this.state, emp = s.emp || {}, c = s.confirm || {};
+    const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'];
+    const bd = s.backDigits;
+    const disp = (bd.padEnd(4, '_').slice(0, 2)) + ':' + (bd.padEnd(4, '_').slice(2, 4));
+    return {
+      isPin: s.screen === 'pin', isRec: s.screen === 'recognize', isAction: s.screen === 'action',
+      isOverdue: s.screen === 'overdue', isReason: s.screen === 'reason', isBackTime: s.screen === 'backTime',
+      isReturn: s.screen === 'return', isCam: s.screen === 'camera', isConfirm: s.screen === 'confirm',
+      pinError: s.pinError, flash: s.flash,
+      showHints: !s.pinError && (this.props.showDemoHints !== false),
+      dots: [0, 1, 2, 3].map(i => ({ bg: i < s.pin.length ? '#2563eb' : '#e2e8f0', sc: i < s.pin.length ? 'scale(1)' : 'scale(.7)' })),
+      keys: digits.map(k => ({ k: k, onPress: () => this.key(k) })),
+      demoPins: [
+        { label: '1024 · Entrada tarde', pin: '1024' },
+        { label: '2048 · Regreso de salida ocasional', pin: '2048' },
+        { label: '3072 · Salida ocasional vencida', pin: '3072' },
+        { label: '4096 · Entrada / Salida a tiempo', pin: '4096' }
+      ].map(h => ({ label: h.label, onPress: () => this.fillDemo(h.pin) })),
+      empName: emp.name || '', empFirst: (emp.name || '').split(' ')[0], empRole: emp.role || '',
+      empId: emp.id || '', empPhotoNote: emp.note || '',
+      overdueDate: emp.overdue ? emp.overdue.date : '', overdueTime: emp.overdue ? emp.overdue.time : '',
+      openOutTime: emp.openExit ? emp.openExit.time : '', openReason: emp.openExit ? emp.openExit.reason : '',
+      openBack: emp.openExit ? emp.openExit.back : '',
+      clock: this.fmt(s.now),
+      today: s.now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
+      reason: s.reason || '',
+      reasons: ['Diligencia', 'Cita médica', 'Almuerzo extendido', 'Otro'].map(r => ({
+        label: r, onPress: () => this.go('backTime', { reason: r, backDigits: '' })
+      })),
+      quickTimes: [{ l: '+30 min', m: 30 }, { l: '+1 h', m: 60 }, { l: '+2 h', m: 120 }]
+        .map(q => ({ label: q.l, onPress: () => this.quick(q.m) })),
+      backTimeDisplay: disp,
+      backTimeOpacity: bd.length === 4 ? '1' : '.45',
+      onConfirmBackTime: () => { if (bd.length === 4) this.startCamera('occ'); },
+      onBackToReason: () => this.go('reason'),
+      onBackToAction: () => this.go('action'),
+      onEntrada: () => this.startCamera('in'),
+      onSalida: () => this.startCamera('out'),
+      onOcasional: () => this.go('reason', { reason: null, backDigits: '' }),
+      onConfirmReturn: () => this.startCamera('ret'),
+      onAckOverdue: () => { if (s.emp) s.emp.overdue = null; this.startCamera('in'); },
+      onCancel: () => this.go('pin', { pin: '', emp: null }),
+      camLabel: s.mode === 'ret' ? 'Foto de regreso' : s.mode === 'occ' ? 'Foto de salida ocasional' : s.mode === 'out' ? 'Foto de salida' : 'Foto de entrada',
+      countNode: React.createElement('div', {
+        key: 'c' + s.count,
+        style: { font: '200 200px/1 "Helvetica Neue",Helvetica,Arial,sans-serif', color: '#fff',
+          animation: 'countIn 900ms cubic-bezier(.22,.7,.3,1) both', textShadow: '0 6px 40px rgba(0,0,0,.5)' }
+      }, s.count > 0 ? String(s.count) : ''),
+      confirmTitle: c.title || '', confirmTime: c.time || '', confirmColor: c.color || '#16a34a',
+      hasPill: !!c.pill, pillText: c.pill ? c.pill.text : '', pillBg: c.pill ? c.pill.bg : '#fff', pillFg: c.pill ? c.pill.fg : '#000',
+      hasMeta: !!c.meta, metaText: c.meta || '',
+      syncNote: s.online ? 'Registro con foto sincronizado con el servidor.' : 'Guardado en el dispositivo. Se sincronizará al recuperar conexión.',
+      autoBarMs: this.autoMs() + 'ms',
+      netDot: s.online ? '#16a34a' : '#d97706',
+      netAnim: s.online ? 'pulseDot 2s ease-out infinite' : 'none',
+      netLabel: s.online ? 'En línea' : 'Sin conexión',
+      pendLabel: s.pending === 0 ? 'Todo sincronizado' : s.pending + ' registro' + (s.pending === 1 ? '' : 's') + ' por sincronizar',
+      pendFg: s.pending === 0 ? '#64748b' : '#fbbf24',
+      onToggleNet: () => this.setState(st => ({ online: !st.online }))
+    };
+  }
+}
+</script>
+</body>
+</html>
