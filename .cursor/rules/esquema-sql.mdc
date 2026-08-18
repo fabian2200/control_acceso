@@ -1,0 +1,46 @@
+---
+description: Cambios de esquema solo con SQL; nunca migraciones Laravel
+alwaysApply: true
+---
+
+# Esquema: solo SQL, sin migraciones
+
+Este proyecto **no usa migraciones Laravel**. El esquema se mantiene y aplica con SQL MySQL.
+
+## Prohibido
+
+- Crear, editar o borrar archivos en `kiosko/database/migrations/`
+- Ejecutar `php artisan migrate`, `migrate:fresh`, `migrate:rollback` u otros comandos de migración
+- Usar `Schema::create` / `Schema::table` / `Blueprint` para cambiar la base
+- Añadir `artisan migrate` a scripts de setup
+
+Las migraciones existentes son legado: ignorarlas. No sincronizarlas con el SQL.
+
+## Obligatorio
+
+Fuente de verdad del esquema de acceso (mantener ambos iguales):
+
+- `kiosko/database/sql/acceso_control.sql`
+- `workBoard.sql` (raíz del repo)
+
+Si hace falta un `ALTER`/`CREATE`/`DROP`:
+
+1. Editar esos `.sql` para que reflejen el estado final deseado (`CREATE TABLE IF NOT EXISTS` + `ALTER` idempotente si aplica).
+2. Entregar el SQL para ejecutarlo a mano en MySQL (`workboard`).
+3. Actualizar modelos Eloquent (`$table`, `$guarded`, casts, relaciones).
+
+```sql
+-- ✅ GOOD: DDL en acceso_control.sql / workBoard.sql
+ALTER TABLE `acceso_registros`
+  ADD COLUMN `ejemplo` varchar(80) DEFAULT NULL;
+
+-- ❌ BAD: nueva migración PHP
+-- database/migrations/2026_xx_xx_add_ejemplo.php
+```
+
+## Formato SQL
+
+- MySQL InnoDB, `utf8mb4` / `utf8mb4_unicode_ci`
+- Tablas nuevas de este módulo: prefijo `acceso_`
+- No recrear tablas Workboard (`empleados`, `users`, `permisos`, etc.)
+---

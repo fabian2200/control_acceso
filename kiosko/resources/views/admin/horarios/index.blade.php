@@ -11,7 +11,7 @@
 @section('content')
 @if ($horarios->isEmpty())
     <section class="panel">
-        <p class="empty">No hay horarios. Crea uno con los días de la semana y las jornadas de mañana y tarde.</p>
+        <p class="empty">No hay horarios. Crea uno con los días de la semana: jornada 1 (obligatoria si hay trabajo) y jornada 2 (opcional).</p>
     </section>
 @else
     <div class="card-grid">

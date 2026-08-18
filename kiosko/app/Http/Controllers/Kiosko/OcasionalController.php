@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Kiosko;
 
 use App\Http\Controllers\Controller;
+use App\Models\Empleado;
 use App\Models\Permiso;
+use App\Services\AccesoService;
 use App\Support\KioskoState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,8 +13,22 @@ use Illuminate\View\View;
 
 class OcasionalController extends Controller
 {
-    public function motivo(): View
+    public function motivo(AccesoService $acceso): View|RedirectResponse
     {
+        $sesion = KioskoState::empleado();
+        $empleado = Empleado::query()
+            ->with(['asignacionHorario.horario.items'])
+            ->find($sesion['id'] ?? 0);
+
+        if ($empleado && $acceso->salidaAbierta($empleado)) {
+            return redirect()->route('kiosko.regreso');
+        }
+
+        if ($empleado && ! $acceso->puedeSalidaOcasional($empleado, now())) {
+            return redirect()->route('kiosko.accion')
+                ->withErrors(['tipo' => 'Marca primero tu entrada para una salida ocasional.']);
+        }
+
         return view('kiosko.motivo');
     }
 

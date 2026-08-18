@@ -29,6 +29,11 @@ class AccesoRegistro extends Model
         return $this->belongsTo(Empleado::class, 'empleado_id');
     }
 
+    public function horario(): BelongsTo
+    {
+        return $this->belongsTo(AccesoHorario::class, 'id_horario');
+    }
+
     public function terminal(): BelongsTo
     {
         return $this->belongsTo(AccesoTerminal::class, 'terminal_id');

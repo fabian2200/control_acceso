@@ -1,6 +1,9 @@
 /* =====================================================================
  * Control de acceso — tablas creadas sobre el esquema workboard
+ * Ejecutar en MySQL con la base `workboard` (o descomenta USE).
  * ===================================================================== */
+
+USE `workboard`;
 
 DROP TABLE IF EXISTS `acceso_motivos`;
 
@@ -19,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `acceso_terminales` (
 CREATE TABLE IF NOT EXISTS `acceso_salidas_ocasionales` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `empleado_id` int(11) NOT NULL,
+  `id_horario` bigint(20) unsigned DEFAULT NULL,
   `terminal_id` bigint(20) unsigned DEFAULT NULL,
   `motivo_texto` varchar(120) DEFAULT NULL,
   `permiso_id` int(11) DEFAULT NULL,
@@ -33,12 +37,14 @@ CREATE TABLE IF NOT EXISTS `acceso_salidas_ocasionales` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `acceso_salidas_empleado_estado` (`empleado_id`,`estado`)
+  KEY `acceso_salidas_empleado_estado` (`empleado_id`,`estado`),
+  KEY `acceso_salidas_id_horario` (`id_horario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `acceso_registros` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `empleado_id` int(11) NOT NULL,
+  `id_horario` bigint(20) unsigned DEFAULT NULL,
   `terminal_id` bigint(20) unsigned DEFAULT NULL,
   `salida_ocasional_id` bigint(20) unsigned DEFAULT NULL,
   `tipo` enum('entrada','salida') NOT NULL,
@@ -56,7 +62,8 @@ CREATE TABLE IF NOT EXISTS `acceso_registros` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `acceso_registros_empleado_fecha` (`empleado_id`,`fecha`),
-  KEY `acceso_registros_tipo_index` (`tipo`)
+  KEY `acceso_registros_tipo_index` (`tipo`),
+  KEY `acceso_registros_id_horario` (`id_horario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `admin_acceso` (
@@ -81,14 +88,14 @@ CREATE TABLE IF NOT EXISTS `acceso_horario_items` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `horario_id` bigint(20) unsigned NOT NULL,
   `dia_semana` tinyint(3) unsigned NOT NULL,
-  `entrada_manana` time DEFAULT NULL,
-  `gabela_entrada_manana` smallint(5) unsigned DEFAULT NULL,
-  `salida_manana` time DEFAULT NULL,
-  `gabela_salida_manana` smallint(5) unsigned DEFAULT NULL,
-  `entrada_tarde` time DEFAULT NULL,
-  `gabela_entrada_tarde` smallint(5) unsigned DEFAULT NULL,
-  `salida_tarde` time DEFAULT NULL,
-  `gabela_salida_tarde` smallint(5) unsigned DEFAULT NULL,
+  `entrada_jornada_1` time DEFAULT NULL,
+  `gabela_entrada_jornada_1` smallint(5) unsigned DEFAULT NULL,
+  `salida_jornada_1` time DEFAULT NULL,
+  `gabela_salida_jornada_1` smallint(5) unsigned DEFAULT NULL,
+  `entrada_jornada_2` time DEFAULT NULL,
+  `gabela_entrada_jornada_2` smallint(5) unsigned DEFAULT NULL,
+  `salida_jornada_2` time DEFAULT NULL,
+  `gabela_salida_jornada_2` smallint(5) unsigned DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -110,3 +117,63 @@ CREATE TABLE IF NOT EXISTS `acceso_empleado_horarios` (
 INSERT INTO `acceso_terminales` (`codigo`,`nombre`,`ubicacion`,`activo`,`created_at`,`updated_at`)
 SELECT 'REC-01','Recepción','Torre Norte',1,NOW(),NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `acceso_terminales` WHERE `codigo`='REC-01');
+
+-- Idempotente: bases ya creadas con columnas mañana/tarde
+SET @db := DATABASE();
+SET @old := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db
+    AND TABLE_NAME = 'acceso_horario_items'
+    AND COLUMN_NAME = 'entrada_manana'
+);
+SET @sql := IF(@old > 0,
+  'ALTER TABLE `acceso_horario_items`
+    CHANGE COLUMN `entrada_manana` `entrada_jornada_1` time DEFAULT NULL,
+    CHANGE COLUMN `gabela_entrada_manana` `gabela_entrada_jornada_1` smallint(5) unsigned DEFAULT NULL,
+    CHANGE COLUMN `salida_manana` `salida_jornada_1` time DEFAULT NULL,
+    CHANGE COLUMN `gabela_salida_manana` `gabela_salida_jornada_1` smallint(5) unsigned DEFAULT NULL,
+    CHANGE COLUMN `entrada_tarde` `entrada_jornada_2` time DEFAULT NULL,
+    CHANGE COLUMN `gabela_entrada_tarde` `gabela_entrada_jornada_2` smallint(5) unsigned DEFAULT NULL,
+    CHANGE COLUMN `salida_tarde` `salida_jornada_2` time DEFAULT NULL,
+    CHANGE COLUMN `gabela_salida_tarde` `gabela_salida_jornada_2` smallint(5) unsigned DEFAULT NULL',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Snapshot del horario vigente en cada marca (informes)
+SET @db := DATABASE();
+SET @has_reg := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'acceso_registros' AND COLUMN_NAME = 'id_horario'
+);
+SET @sql := IF(@has_reg = 0,
+  'ALTER TABLE `acceso_registros` ADD COLUMN `id_horario` bigint(20) unsigned DEFAULT NULL AFTER `empleado_id`, ADD KEY `acceso_registros_id_horario` (`id_horario`)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @has_occ := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'acceso_salidas_ocasionales' AND COLUMN_NAME = 'id_horario'
+);
+SET @sql := IF(@has_occ = 0,
+  'ALTER TABLE `acceso_salidas_ocasionales` ADD COLUMN `id_horario` bigint(20) unsigned DEFAULT NULL AFTER `empleado_id`, ADD KEY `acceso_salidas_id_horario` (`id_horario`)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+UPDATE `acceso_registros` r
+INNER JOIN `acceso_empleado_horarios` a ON a.empleado_id = r.empleado_id
+SET r.id_horario = a.horario_id
+WHERE r.id_horario IS NULL;
+
+UPDATE `acceso_salidas_ocasionales` o
+INNER JOIN `acceso_empleado_horarios` a ON a.empleado_id = o.empleado_id
+SET o.id_horario = a.horario_id
+WHERE o.id_horario IS NULL;

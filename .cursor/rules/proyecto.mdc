@@ -1,0 +1,44 @@
+---
+description: Mapa del proyecto Control de Acceso para tareas de agente
+alwaysApply: true
+---
+
+# Control de Acceso
+
+Kiosko táctil de recepción + panel admin. App Laravel en `kiosko/`. UI en español. Zona horaria `America/Bogota`.
+
+## Stack
+
+- Laravel 12 / PHP 8.2, MySQL (`DB_DATABASE=workboard`)
+- Blade + CSS/JS estáticos en `kiosko/public/` (no Vite para el kiosko)
+- Eloquent sobre tablas Workboard existentes y tablas `acceso_*`
+
+## Dónde vive cada cosa
+
+- Flujo kiosko: `kiosko/app/Http/Controllers/Kiosko/`, vistas `resources/views/kiosko/`
+- Admin (`/admin`): `Controllers/Admin/`, guard `admin_acceso`
+- Lógica de marcas/puntualidad: `app/Services/AccesoService.php`
+- Sesión del kiosko: `app/Support/KioskoState.php` (clave `kiosko`)
+- Config: `config/acceso.php` (`ACCESO_TERMINAL`, `ACCESO_UBICACION`, etc.)
+- Estilos: `public/css/kiosko.css` y `public/css/admin.css`
+- JS: `public/js/*.js` (teclado, cédula, cámara, hora)
+
+## Flujo kiosko
+
+Cédula → reconocer → (vencida | regreso | acción) → [motivo/permisos/hora] → cámara → registrar → confirmación.
+
+Tipos: `entrada`, `salida`, `salida_ocasional`, `regreso`.
+
+Horario del día: **jornada 1** y **jornada 2** (opcional). Un solo bloque (p. ej. 08:00–15:00) se llena solo en jornada 1. Columnas SQL: `entrada_jornada_1`/`salida_jornada_1` y `entrada_jornada_2`/`salida_jornada_2`.
+
+## Tablas Workboard (no crear ni alterar salvo SQL explícito)
+
+`empleados`, `users`, `permisos`, `cargos`, `departamentos`, `empresas`. FKs legacy sin `*_id` (`empleado.cargo`, `users.empleado`, `permisos.empleado`). Modelos Workboard: `$timestamps = false`.
+
+## Convenciones
+
+- Controladores delgados; reglas de negocio en `AccesoService`
+- Validar en el controlador; persistir con Eloquent
+- No añadir APIs JSON ni SPA; el kiosko es formularios + sesión
+- No reescribir el prototipo HTML de la raíz; la app canónica es `kiosko/`
+---

@@ -28,6 +28,16 @@ class AccesoHorario extends Model
         return $this->hasMany(AccesoEmpleadoHorario::class, 'horario_id');
     }
 
+    public function registros(): HasMany
+    {
+        return $this->hasMany(AccesoRegistro::class, 'id_horario');
+    }
+
+    public function salidasOcasionales(): HasMany
+    {
+        return $this->hasMany(AccesoSalidaOcasional::class, 'id_horario');
+    }
+
     public function scopeActivos($query)
     {
         return $query->where('activo', true)->orderBy('nombre');

@@ -54,14 +54,18 @@ button{font-family:inherit}
 .action-clock{text-align:right}
 .clock{font:300 52px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;color:#0f172a;letter-spacing:-.02em}
 .today{margin-top:8px;font:400 15px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;color:#94a3b8}
-.action-grid{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.action-grid{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 .action-grid form{display:contents}
-.action-slots{grid-template-columns:1fr 1fr}
+.action-slots{grid-template-columns:repeat(4,1fr)}
+.action-slots-2{grid-template-columns:repeat(2,1fr)}
 .action-slots form{display:block}
 .action-occ-span{grid-column:1 / -1}
-.action-slots .action-card{height:168px}
-.action-slots .action-occ{height:110px;flex-direction:row;align-items:center;gap:18px;justify-content:flex-start}
+.action-slots .action-card{height:180px;padding:22px}
+.action-slots-4 .action-title{font-size:24px}
+.action-slots-2 .action-card{height:200px}
+.action-slots .action-occ{height:110px;flex-direction:row;align-items:center;gap:18px;justify-content:flex-start;padding:28px}
 .action-slots .action-occ .action-dot{margin:0}
+.action-slots .action-occ .action-title{font-size:30px}
 .action-card{width:100%}
 
 .reason-grid{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -147,6 +151,7 @@ button{font-family:inherit}
 .action-title{font:600 36px/1.1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:-.01em}
 .action-slots .action-title{font-size:30px}
 .action-sub{margin-top:8px;font:400 17px/1.3 "Helvetica Neue",Helvetica,Arial,sans-serif;opacity:.85}
+.action-note{margin-top:4px;font:400 14px/1.25 "Helvetica Neue",Helvetica,Arial,sans-serif;opacity:.95}
 
 .reason-btn{height:140px;cursor:pointer;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;display:flex;align-items:center;gap:20px;padding:0 30px;text-align:left;transition:transform 100ms,background 140ms,border-color 140ms}
 .reason-btn:hover{background:#fffbeb;border-color:#fcd34d}

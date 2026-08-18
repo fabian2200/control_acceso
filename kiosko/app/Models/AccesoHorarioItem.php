@@ -51,10 +51,10 @@ class AccesoHorarioItem extends Model
 
     public function esDescanso(): bool
     {
-        return $this->entrada_manana === null
-            && $this->salida_manana === null
-            && $this->entrada_tarde === null
-            && $this->salida_tarde === null;
+        return $this->entrada_jornada_1 === null
+            && $this->salida_jornada_1 === null
+            && $this->entrada_jornada_2 === null
+            && $this->salida_jornada_2 === null;
     }
 
     public function resumen(): string
@@ -65,12 +65,12 @@ class AccesoHorarioItem extends Model
 
         $partes = [];
 
-        if ($this->hora('entrada_manana') || $this->hora('salida_manana')) {
-            $partes[] = $this->tramo('entrada_manana', 'salida_manana');
+        if ($this->hora('entrada_jornada_1') || $this->hora('salida_jornada_1')) {
+            $partes[] = 'J1 '.$this->tramo('entrada_jornada_1', 'salida_jornada_1');
         }
 
-        if ($this->hora('entrada_tarde') || $this->hora('salida_tarde')) {
-            $partes[] = $this->tramo('entrada_tarde', 'salida_tarde');
+        if ($this->hora('entrada_jornada_2') || $this->hora('salida_jornada_2')) {
+            $partes[] = 'J2 '.$this->tramo('entrada_jornada_2', 'salida_jornada_2');
         }
 
         return implode(' · ', $partes);

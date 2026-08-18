@@ -70,6 +70,12 @@ class HorarioController extends Controller
             ]);
         }
 
+        if ($horario->registros()->exists() || $horario->salidasOcasionales()->exists()) {
+            return back()->withErrors([
+                'horario' => 'No se puede eliminar: hay marcas o salidas ocasionales asociadas a este horario.',
+            ]);
+        }
+
         $horario->delete();
 
         return redirect()
@@ -82,7 +88,7 @@ class HorarioController extends Controller
         $items = $request->input('items', []);
 
         foreach ($items as $dia => $row) {
-            foreach (['entrada_manana', 'salida_manana', 'entrada_tarde', 'salida_tarde'] as $campo) {
+            foreach (['entrada_jornada_1', 'salida_jornada_1', 'entrada_jornada_2', 'salida_jornada_2'] as $campo) {
                 $valor = trim((string) ($row[$campo] ?? ''));
                 if ($valor === '') {
                     $items[$dia][$campo] = null;
@@ -107,14 +113,14 @@ class HorarioController extends Controller
             'descripcion' => ['nullable', 'string', 'max:255'],
             'activo' => ['nullable', 'boolean'],
             'items' => ['required', 'array'],
-            'items.*.entrada_manana' => ['nullable', 'date_format:H:i'],
-            'items.*.salida_manana' => ['nullable', 'date_format:H:i'],
-            'items.*.entrada_tarde' => ['nullable', 'date_format:H:i'],
-            'items.*.salida_tarde' => ['nullable', 'date_format:H:i'],
-            'items.*.gabela_entrada_manana' => ['nullable', 'integer', 'min:0', 'max:180'],
-            'items.*.gabela_salida_manana' => ['nullable', 'integer', 'min:0', 'max:180'],
-            'items.*.gabela_entrada_tarde' => ['nullable', 'integer', 'min:0', 'max:180'],
-            'items.*.gabela_salida_tarde' => ['nullable', 'integer', 'min:0', 'max:180'],
+            'items.*.entrada_jornada_1' => ['nullable', 'date_format:H:i'],
+            'items.*.salida_jornada_1' => ['nullable', 'date_format:H:i'],
+            'items.*.entrada_jornada_2' => ['nullable', 'date_format:H:i'],
+            'items.*.salida_jornada_2' => ['nullable', 'date_format:H:i'],
+            'items.*.gabela_entrada_jornada_1' => ['nullable', 'integer', 'min:0', 'max:180'],
+            'items.*.gabela_salida_jornada_1' => ['nullable', 'integer', 'min:0', 'max:180'],
+            'items.*.gabela_entrada_jornada_2' => ['nullable', 'integer', 'min:0', 'max:180'],
+            'items.*.gabela_salida_jornada_2' => ['nullable', 'integer', 'min:0', 'max:180'],
         ], [
             'nombre.required' => 'Indica el nombre del horario.',
         ]);
@@ -134,14 +140,14 @@ class HorarioController extends Controller
             $horario->items()->updateOrCreate(
                 ['dia_semana' => $dia],
                 [
-                    'entrada_manana' => $this->horaONulo($row['entrada_manana'] ?? null),
-                    'gabela_entrada_manana' => $this->gabelaONulo($row['gabela_entrada_manana'] ?? null),
-                    'salida_manana' => $this->horaONulo($row['salida_manana'] ?? null),
-                    'gabela_salida_manana' => $this->gabelaONulo($row['gabela_salida_manana'] ?? null),
-                    'entrada_tarde' => $this->horaONulo($row['entrada_tarde'] ?? null),
-                    'gabela_entrada_tarde' => $this->gabelaONulo($row['gabela_entrada_tarde'] ?? null),
-                    'salida_tarde' => $this->horaONulo($row['salida_tarde'] ?? null),
-                    'gabela_salida_tarde' => $this->gabelaONulo($row['gabela_salida_tarde'] ?? null),
+                    'entrada_jornada_1' => $this->horaONulo($row['entrada_jornada_1'] ?? null),
+                    'gabela_entrada_jornada_1' => $this->gabelaONulo($row['gabela_entrada_jornada_1'] ?? null),
+                    'salida_jornada_1' => $this->horaONulo($row['salida_jornada_1'] ?? null),
+                    'gabela_salida_jornada_1' => $this->gabelaONulo($row['gabela_salida_jornada_1'] ?? null),
+                    'entrada_jornada_2' => $this->horaONulo($row['entrada_jornada_2'] ?? null),
+                    'gabela_entrada_jornada_2' => $this->gabelaONulo($row['gabela_entrada_jornada_2'] ?? null),
+                    'salida_jornada_2' => $this->horaONulo($row['salida_jornada_2'] ?? null),
+                    'gabela_salida_jornada_2' => $this->gabelaONulo($row['gabela_salida_jornada_2'] ?? null),
                 ]
             );
         }
@@ -173,14 +179,14 @@ class HorarioController extends Controller
             $items[$dia] = [
                 'dia' => $dia,
                 'nombre' => $nombre,
-                'entrada_manana' => '',
-                'gabela_entrada_manana' => '',
-                'salida_manana' => '',
-                'gabela_salida_manana' => '',
-                'entrada_tarde' => '',
-                'gabela_entrada_tarde' => '',
-                'salida_tarde' => '',
-                'gabela_salida_tarde' => '',
+                'entrada_jornada_1' => '',
+                'gabela_entrada_jornada_1' => '',
+                'salida_jornada_1' => '',
+                'gabela_salida_jornada_1' => '',
+                'entrada_jornada_2' => '',
+                'gabela_entrada_jornada_2' => '',
+                'salida_jornada_2' => '',
+                'gabela_salida_jornada_2' => '',
             ];
         }
 
@@ -195,14 +201,14 @@ class HorarioController extends Controller
             $items[$item->dia_semana] = [
                 'dia' => $item->dia_semana,
                 'nombre' => $item->nombreDia(),
-                'entrada_manana' => $item->hora('entrada_manana') ?? '',
-                'gabela_entrada_manana' => $item->gabela('entrada_manana'),
-                'salida_manana' => $item->hora('salida_manana') ?? '',
-                'gabela_salida_manana' => $item->gabela('salida_manana'),
-                'entrada_tarde' => $item->hora('entrada_tarde') ?? '',
-                'gabela_entrada_tarde' => $item->gabela('entrada_tarde'),
-                'salida_tarde' => $item->hora('salida_tarde') ?? '',
-                'gabela_salida_tarde' => $item->gabela('salida_tarde'),
+                'entrada_jornada_1' => $item->hora('entrada_jornada_1') ?? '',
+                'gabela_entrada_jornada_1' => $item->gabela('entrada_jornada_1'),
+                'salida_jornada_1' => $item->hora('salida_jornada_1') ?? '',
+                'gabela_salida_jornada_1' => $item->gabela('salida_jornada_1'),
+                'entrada_jornada_2' => $item->hora('entrada_jornada_2') ?? '',
+                'gabela_entrada_jornada_2' => $item->gabela('entrada_jornada_2'),
+                'salida_jornada_2' => $item->hora('salida_jornada_2') ?? '',
+                'gabela_salida_jornada_2' => $item->gabela('salida_jornada_2'),
             ];
         }
 

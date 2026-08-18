@@ -25,6 +25,8 @@ Route::middleware('kiosko.sesion')->group(function () {
     Route::post('/aviso', [AccionController::class, 'reconocerVencida'])->name('kiosko.vencida.ack');
     Route::get('/regreso', [AccionController::class, 'regreso'])->name('kiosko.regreso');
     Route::post('/regreso', [AccionController::class, 'confirmarRegreso'])->name('kiosko.regreso.confirmar');
+    Route::get('/entrada-ocasional', [AccionController::class, 'preguntarEntrada'])->name('kiosko.entrada.preguntar');
+    Route::post('/entrada-ocasional', [AccionController::class, 'decidirEntrada'])->name('kiosko.entrada.decidir');
 
     Route::get('/motivo', [OcasionalController::class, 'motivo'])->name('kiosko.motivo');
     Route::post('/motivo', [OcasionalController::class, 'guardarMotivo'])->name('kiosko.motivo.guardar');

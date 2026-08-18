@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Kiosko;
 
 use App\Http\Controllers\Controller;
+use App\Models\Empleado;
 use App\Services\AccesoService;
 use App\Support\KioskoState;
 use Illuminate\Http\RedirectResponse;
@@ -11,14 +12,25 @@ use Illuminate\View\View;
 
 class RegistroController extends Controller
 {
-    public function camara(string $tipo): View|RedirectResponse
+    public function camara(string $tipo, AccesoService $acceso): View|RedirectResponse
     {
         if (! in_array($tipo, ['entrada', 'salida', 'salida_ocasional', 'regreso'], true)) {
             return redirect()->route('kiosko.accion');
         }
 
+        if ($tipo === 'regreso') {
+            return redirect()->route('kiosko.regreso');
+        }
+
         if ($tipo === 'salida_ocasional' && ! KioskoState::get('hora_regreso')) {
             return redirect()->route('kiosko.hora');
+        }
+
+        $sesion = KioskoState::empleado();
+        $empleado = $sesion ? Empleado::query()->find($sesion['id'] ?? 0) : null;
+
+        if ($empleado && $acceso->salidaAbierta($empleado) && $tipo !== 'salida_ocasional' && ! KioskoState::get('entrada_despues_cierre')) {
+            return redirect()->route('kiosko.regreso');
         }
 
         KioskoState::put(['tipo' => $tipo]);
@@ -28,10 +40,10 @@ class RegistroController extends Controller
             'salida' => 'Foto de salida',
             'salida_ocasional' => 'Foto de salida ocasional',
             'regreso' => 'Foto de regreso',
-            'entrada_manana' => 'Foto de entrada mañana',
-            'salida_manana' => 'Foto de salida mañana',
-            'entrada_tarde' => 'Foto de entrada tarde',
-            'salida_tarde' => 'Foto de salida tarde',
+            'entrada_jornada_1' => 'Foto de entrada jornada 1',
+            'salida_jornada_1' => 'Foto de salida jornada 1',
+            'entrada_jornada_2' => 'Foto de entrada jornada 2',
+            'salida_jornada_2' => 'Foto de salida jornada 2',
         ];
 
         $campo = KioskoState::get('campo');

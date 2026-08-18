@@ -35,17 +35,17 @@
         <h2>Días de la semana</h2>
         <button type="button" class="btn-ghost" id="copiarLunes">Copiar lunes a lun–vie</button>
     </div>
-    <p class="muted days-hint">Cada marca tiene su hora y una gabela en minutos (tolerancia). Déjalo vacío si ese día es descanso.</p>
+    <p class="muted days-hint">Jornada 1 es el primer bloque del día (p. ej. 08:00–15:00 o 08:00–12:00). Jornada 2 es opcional, para un segundo bloque. Cada marca tiene gabela en minutos. Vacío = descanso.</p>
 
     <div class="table-wrap">
         <table class="table days-table">
             <thead>
                 <tr>
                     <th>Día</th>
-                    <th>Entrada mañana</th>
-                    <th>Salida mañana</th>
-                    <th>Entrada tarde</th>
-                    <th>Salida tarde</th>
+                    <th>Entrada jornada 1</th>
+                    <th>Salida jornada 1</th>
+                    <th>Entrada jornada 2</th>
+                    <th>Salida jornada 2</th>
                 </tr>
             </thead>
             <tbody>
@@ -53,7 +53,7 @@
                     @php $oldItem = old('items.'.$dia, $item); @endphp
                     <tr>
                         <td><strong>{{ $item['nombre'] }}</strong></td>
-                        @foreach (['entrada_manana', 'salida_manana', 'entrada_tarde', 'salida_tarde'] as $campo)
+                        @foreach (['entrada_jornada_1', 'salida_jornada_1', 'entrada_jornada_2', 'salida_jornada_2'] as $campo)
                             <td>
                                 <div class="slot">
                                     <input type="time" name="items[{{ $dia }}][{{ $campo }}]" value="{{ $oldItem[$campo] ?? '' }}" data-dia="{{ $dia }}" data-campo="{{ $campo }}">
@@ -81,8 +81,8 @@
 @push('scripts')
 <script>
     document.getElementById('copiarLunes')?.addEventListener('click', function () {
-        ['entrada_manana', 'salida_manana', 'entrada_tarde', 'salida_tarde',
-         'gabela_entrada_manana', 'gabela_salida_manana', 'gabela_entrada_tarde', 'gabela_salida_tarde'].forEach(function (campo) {
+        ['entrada_jornada_1', 'salida_jornada_1', 'entrada_jornada_2', 'salida_jornada_2',
+         'gabela_entrada_jornada_1', 'gabela_salida_jornada_1', 'gabela_entrada_jornada_2', 'gabela_salida_jornada_2'].forEach(function (campo) {
             const origen = document.querySelector('[data-dia="1"][data-campo="' + campo + '"]');
             if (!origen) return;
             for (let dia = 2; dia <= 5; dia++) {

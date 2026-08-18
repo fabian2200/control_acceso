@@ -46,9 +46,9 @@ class CedulaController extends Controller
             ],
             'want_occasional' => $request->boolean('salida_ocasional'),
             'siguiente' => $resultado['siguiente'],
-            'overdue' => $resultado['overdue'],
             'open_exit' => $resultado['openExit'],
             'sugerido' => $resultado['sugerido'],
+            'entrada_despues_cierre' => false,
         ]);
 
         return redirect()->route('kiosko.reconocer');

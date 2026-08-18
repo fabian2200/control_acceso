@@ -27,6 +27,11 @@ class AccesoSalidaOcasional extends Model
         return $this->belongsTo(Empleado::class, 'empleado_id');
     }
 
+    public function horario(): BelongsTo
+    {
+        return $this->belongsTo(AccesoHorario::class, 'id_horario');
+    }
+
     public function permiso(): BelongsTo
     {
         return $this->belongsTo(Permiso::class, 'permiso_id');

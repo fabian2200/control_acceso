@@ -15,6 +15,8 @@ use InvalidArgumentException;
 
 class AccesoService
 {
+    private const HORAS_ANTES_ENTRADA = 2;
+
     public function identificar(string $cedula): array
     {
         $cedula = preg_replace('/\D+/', '', $cedula) ?? '';
@@ -29,8 +31,7 @@ class AccesoService
             return ['ok' => false, 'error' => 'cedula'];
         }
 
-        $overdue = $this->marcarVencidas($empleado);
-        $openExit = $this->salidaAbiertaHoy($empleado);
+        $openExit = $this->salidaAbierta($empleado);
         $sugerido = $this->sugerirTipo($empleado);
 
         return [
@@ -46,8 +47,8 @@ class AccesoService
             ],
             'sugerido' => $sugerido,
             'openExit' => $openExit,
-            'overdue' => $overdue,
-            'siguiente' => $openExit ? 'return' : ($overdue ? 'overdue' : 'action'),
+            'overdue' => null,
+            'siguiente' => $openExit ? 'return' : 'action',
         ];
     }
 
@@ -66,7 +67,7 @@ class AccesoService
             'entrada' => $this->registrarEntrada($empleado, $now, $terminal, $fotoPath, $data['campo'] ?? null),
             'salida' => $this->registrarSalida($empleado, $now, $terminal, $fotoPath, $data['campo'] ?? null),
             'salida_ocasional' => $this->registrarOcasional($empleado, $now, $terminal, $fotoPath, $data),
-            'regreso' => $this->registrarRegreso($empleado, $now, $terminal, $fotoPath),
+            'regreso' => $this->cerrarOcasional($empleado, $now, $terminal, $fotoPath),
             default => throw new InvalidArgumentException('Tipo de registro no válido.'),
         };
     }
@@ -115,6 +116,7 @@ class AccesoService
 
         $ocasional = AccesoSalidaOcasional::query()->create([
             'empleado_id' => $empleado->id,
+            'id_horario' => $this->idHorarioEmpleado($empleado),
             'terminal_id' => $terminal?->id,
             'motivo_texto' => $motivoTexto,
             'permiso_id' => $permiso?->id,
@@ -124,15 +126,27 @@ class AccesoService
             'estado' => 'abierta',
         ]);
 
-        $this->crearRegistro(
-            $empleado,
-            'salida',
-            $now,
-            $terminal,
-            $fotoPath,
-            $this->puntualidadVacia(),
-            $ocasional->id
-        );
+        $caso = $this->clasificarOcasional($empleado, $now, $horaRegreso);
+
+        if (in_array($caso, [3, 4, 5], true)) {
+            $item = $this->itemHorarioHoy($empleado, $now);
+            $campoSalida = $caso === 5
+                ? $this->campoUltimaSalida($item)
+                : 'salida_jornada_1';
+            $puntualidad = $this->puntualidadSlot($empleado, 'salida', $now, $campoSalida);
+
+            if (! $this->yaRegistrado($empleado, 'salida', $puntualidad['hora_esperada'] ? substr($puntualidad['hora_esperada'], 0, 5) : null, $now)) {
+                $this->crearRegistro(
+                    $empleado,
+                    'salida',
+                    $now,
+                    $terminal,
+                    $fotoPath,
+                    $puntualidad,
+                    $ocasional->id
+                );
+            }
+        }
 
         $pillTexto = mb_strlen($motivoTexto) > 42
             ? rtrim(mb_substr($motivoTexto, 0, 40)).'…'
@@ -147,7 +161,16 @@ class AccesoService
         ];
     }
 
-    private function registrarRegreso(Empleado $empleado, Carbon $now, ?AccesoTerminal $terminal, ?string $fotoPath): array
+    public function cerrarOcasionalAbierta(Empleado $empleado, ?string $fotoPath = null): array
+    {
+        $empleado->loadMissing(['asignacionHorario.horario.items', 'user']);
+        $now = now();
+        $terminal = AccesoTerminal::query()->where('codigo', config('acceso.terminal_codigo'))->first();
+
+        return $this->cerrarOcasional($empleado, $now, $terminal, $fotoPath);
+    }
+
+    private function cerrarOcasional(Empleado $empleado, Carbon $now, ?AccesoTerminal $terminal, ?string $fotoPath): array
     {
         $abierta = AccesoSalidaOcasional::query()
             ->where('empleado_id', $empleado->id)
@@ -155,42 +178,49 @@ class AccesoService
             ->latest('salida_en')
             ->first();
 
-        $puntualidad = $this->calcularPuntualidadHora(
-            $abierta?->hora_regreso_esperada ? substr((string) $abierta->hora_regreso_esperada, 0, 5) : null,
-            $now,
-            'entrada'
-        );
-
-        if ($abierta) {
-            $abierta->update([
-                'regreso_en' => $now,
-                'foto_regreso' => $fotoPath,
-                'minutos_tarde' => $puntualidad['llego_tarde'],
-                'estado' => 'cerrada',
-                'terminal_id' => $abierta->terminal_id ?: $terminal?->id,
-            ]);
+        if (! $abierta) {
+            return [
+                'title' => 'Salida ocasional cerrada',
+                'time' => $now->format('H:i'),
+                'color' => '#16a34a',
+                'pill' => ['text' => 'Salida cerrada', 'bg' => '#ecfdf3', 'fg' => '#15803d'],
+                'meta' => null,
+            ];
         }
 
-        $this->crearRegistro(
-            $empleado,
-            'entrada',
-            $now,
-            $terminal,
-            $fotoPath,
-            $puntualidad,
-            $abierta?->id
-        );
+        $esperado = substr((string) $abierta->hora_regreso_esperada, 0, 5);
+        $caso = $this->clasificarOcasional($empleado, $abierta->salida_en, $esperado);
 
-        $salidaHora = $abierta?->salida_en?->format('H:i') ?? '';
-        $motivo = $abierta?->motivo_texto ?? '';
-        $esperado = $abierta ? substr((string) $abierta->hora_regreso_esperada, 0, 5) : '';
+        if ($caso === 5) {
+            $esperadoElDiaDeSalida = $this->carbonHora($abierta->salida_en, $esperado);
+            $diaCierre = $esperadoElDiaDeSalida && $esperadoElDiaDeSalida->lt($abierta->salida_en)
+                ? $abierta->salida_en->copy()->addDay()
+                : $abierta->salida_en->copy();
+            $horaCierre = $this->carbonHora($diaCierre, $esperado) ?? $diaCierre;
+            $minutosTarde = 0;
+        } else {
+            $horaCierre = $now;
+            $puntualidad = $this->calcularPuntualidadHora($esperado !== '' ? $esperado : null, $now, 'entrada');
+            $minutosTarde = $puntualidad['llego_tarde'];
+        }
+
+        $abierta->update([
+            'regreso_en' => $horaCierre,
+            'foto_regreso' => $fotoPath,
+            'minutos_tarde' => $minutosTarde,
+            'estado' => 'cerrada',
+            'terminal_id' => $abierta->terminal_id ?: $terminal?->id,
+        ]);
+
+        $salidaHora = $abierta->salida_en->format('H:i');
+        $motivo = $abierta->motivo_texto ?? '';
 
         return [
-            'title' => 'Regreso confirmado',
-            'time' => $now->format('H:i'),
-            'color' => $puntualidad['llego_tarde'] > 0 ? '#d97706' : '#16a34a',
-            'pill' => $puntualidad['llego_tarde'] > 0 || $puntualidad['llego_temprano'] > 0
-                ? $this->pillPuntualidad('entrada', $puntualidad)
+            'title' => 'Salida ocasional cerrada',
+            'time' => $horaCierre->format('H:i'),
+            'color' => $minutosTarde > 0 ? '#d97706' : '#16a34a',
+            'pill' => $minutosTarde > 0
+                ? ['text' => 'Tarde · '.$minutosTarde.' min', 'bg' => '#fffbeb', 'fg' => '#b45309']
                 : ['text' => 'Salida cerrada', 'bg' => '#ecfdf3', 'fg' => '#15803d'],
             'meta' => trim('Salió '.$salidaHora.($esperado !== '' ? ' · esperado '.$esperado : '').($motivo !== '' ? ' · '.$motivo : '')),
         ];
@@ -218,11 +248,10 @@ class AccesoService
                     'clase' => 'action-out',
                     'enabled' => true,
                 ],
-                $this->botonOcasional(),
+                $this->botonOcasional($empleado, $now, null),
             ];
         }
 
-        $esManana = $this->esJornadaManana($item, $now);
         $botones = [];
 
         foreach ($this->definicionSlots() as $slot) {
@@ -230,32 +259,33 @@ class AccesoService
                 continue;
             }
 
-            if (($slot['jornada'] === 'manana') !== $esManana) {
-                continue;
-            }
-
             $estado = $this->estadoSlot($empleado, $item, $slot, $now);
             $hora = $item->hora($slot['campo']);
+            $motivo = $estado['motivo'] ?? null;
+            $mostrarHora = $estado['enabled'] || $motivo !== 'Ya registrada';
 
             $botones[] = [
                 'tipo' => $slot['tipo'],
                 'campo' => $slot['campo'],
                 'label' => $slot['label'],
-                'sub' => $estado['enabled'] ? $hora : $estado['motivo'],
+                'sub' => $mostrarHora ? $hora : $motivo,
+                'nota' => (! $estado['enabled'] && $motivo && $motivo !== 'Ya registrada' && $motivo !== $hora)
+                    ? $motivo
+                    : null,
                 'hora' => $hora,
                 'clase' => $slot['clase'],
                 'enabled' => $estado['enabled'],
             ];
         }
 
-        $botones[] = $this->botonOcasional();
+        $botones[] = $this->botonOcasional($empleado, $now, $item);
 
         return $botones;
     }
 
     public function slotHabilitado(Empleado $empleado, string $tipo, ?string $campo, Carbon $now): bool
     {
-        if ($tipo === 'salida_ocasional' || $tipo === 'regreso') {
+        if ($tipo === 'regreso') {
             return true;
         }
 
@@ -268,46 +298,130 @@ class AccesoService
         return false;
     }
 
-    private function botonOcasional(): array
+    public function puedeSalidaOcasional(Empleado $empleado, Carbon $now): bool
     {
+        $item = $this->itemHorarioHoy($empleado, $now);
+
+        return $this->tieneEntradaActual($empleado, $now, $item);
+    }
+
+    private function botonOcasional(Empleado $empleado, Carbon $now, ?AccesoHorarioItem $item): array
+    {
+        $puede = $this->tieneEntradaActual($empleado, $now, $item);
+
         return [
             'tipo' => 'salida_ocasional',
             'campo' => null,
             'label' => 'Salida ocasional',
-            'sub' => 'Con regreso el mismo día',
+            'sub' => $puede ? 'Se cierra al volver' : 'Marca primero tu entrada',
             'clase' => 'action-occ',
-            'enabled' => true,
+            'enabled' => $puede,
         ];
+    }
+
+    private function tieneEntradaActual(Empleado $empleado, Carbon $now, ?AccesoHorarioItem $item): bool
+    {
+        if (! $item || $item->esDescanso()) {
+            $ultima = $this->queryRegistrosJornada($empleado, $now)
+                ->whereIn('tipo', ['entrada', 'salida'])
+                ->latest('registrado_en')
+                ->first();
+
+            return $ultima?->tipo === 'entrada';
+        }
+
+        $campo = $this->esJornada1($item, $now) ? 'entrada_jornada_1' : 'entrada_jornada_2';
+
+        if (! $item->hora($campo)) {
+            $campo = 'entrada_jornada_1';
+        }
+
+        return $this->yaRegistrado($empleado, 'entrada', $item->hora($campo), $now);
     }
 
     private function definicionSlots(): array
     {
         return [
-            ['campo' => 'entrada_manana', 'tipo' => 'entrada', 'jornada' => 'manana', 'label' => 'Entrada mañana', 'clase' => 'action-in', 'salida' => 'salida_manana', 'entrada' => 'entrada_manana'],
-            ['campo' => 'salida_manana', 'tipo' => 'salida', 'jornada' => 'manana', 'label' => 'Salida mañana', 'clase' => 'action-out', 'salida' => 'salida_manana', 'entrada' => 'entrada_manana'],
-            ['campo' => 'entrada_tarde', 'tipo' => 'entrada', 'jornada' => 'tarde', 'label' => 'Entrada tarde', 'clase' => 'action-in', 'salida' => 'salida_tarde', 'entrada' => 'entrada_tarde'],
-            ['campo' => 'salida_tarde', 'tipo' => 'salida', 'jornada' => 'tarde', 'label' => 'Salida tarde', 'clase' => 'action-out', 'salida' => 'salida_tarde', 'entrada' => 'entrada_tarde'],
+            ['campo' => 'entrada_jornada_1', 'tipo' => 'entrada', 'jornada' => 1, 'label' => 'Entrada jornada 1', 'clase' => 'action-in', 'salida' => 'salida_jornada_1', 'entrada' => 'entrada_jornada_1'],
+            ['campo' => 'salida_jornada_1', 'tipo' => 'salida', 'jornada' => 1, 'label' => 'Salida jornada 1', 'clase' => 'action-out', 'salida' => 'salida_jornada_1', 'entrada' => 'entrada_jornada_1'],
+            ['campo' => 'entrada_jornada_2', 'tipo' => 'entrada', 'jornada' => 2, 'label' => 'Entrada jornada 2', 'clase' => 'action-in', 'salida' => 'salida_jornada_2', 'entrada' => 'entrada_jornada_2'],
+            ['campo' => 'salida_jornada_2', 'tipo' => 'salida', 'jornada' => 2, 'label' => 'Salida jornada 2', 'clase' => 'action-out', 'salida' => 'salida_jornada_2', 'entrada' => 'entrada_jornada_2'],
         ];
     }
 
     private function estadoSlot(Empleado $empleado, AccesoHorarioItem $item, array $slot, Carbon $now): array
     {
-        if ($this->yaRegistrado($empleado, $slot['tipo'], $item->hora($slot['campo']), $now)) {
+        $hora = $item->hora($slot['campo']);
+
+        if ($this->yaRegistrado($empleado, $slot['tipo'], $hora, $now)) {
             return ['enabled' => false, 'motivo' => 'Ya registrada'];
+        }
+
+        if ($slot['tipo'] === 'entrada') {
+            $apertura = $this->horaAperturaEntrada($now, $hora);
+
+            if ($apertura && $now->lt($apertura)) {
+                return ['enabled' => false, 'motivo' => 'Puedes marcar desde las '.$apertura->format('H:i')];
+            }
+        }
+
+        $esJornada1 = $this->esJornada1($item, $now);
+
+        if ($slot['jornada'] === 1 && $slot['tipo'] === 'salida' && ! $esJornada1) {
+            $inicioJ2 = $this->carbonHora($now, $item->hora('entrada_jornada_2'));
+
+            if (! $inicioJ2 || $now->lt($inicioJ2)) {
+                return ['enabled' => true, 'motivo' => null];
+            }
+        }
+
+        if (($slot['jornada'] === 1) !== $esJornada1) {
+            return ['enabled' => false, 'motivo' => $hora];
         }
 
         return ['enabled' => true, 'motivo' => null];
     }
 
-    private function esJornadaManana(AccesoHorarioItem $item, Carbon $now): bool
+    private function esJornada1(AccesoHorarioItem $item, Carbon $now): bool
     {
-        $corte = $this->carbonHora($now, $item->hora('entrada_tarde'));
+        $tieneJornada2 = $item->hora('entrada_jornada_2') || $item->hora('salida_jornada_2');
 
-        if (! $corte) {
+        if (! $tieneJornada2) {
             return true;
         }
 
-        return $now->lt($corte);
+        $limite = $this->limiteJornada1($item, $now);
+
+        if ($limite && $now->lt($limite->copy()->addMinute())) {
+            return true;
+        }
+
+        $aperturaJ2 = $this->horaAperturaEntrada($now, $item->hora('entrada_jornada_2'));
+
+        if ($aperturaJ2 && $now->lt($aperturaJ2)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function horaAperturaEntrada(Carbon $now, ?string $hora): ?Carbon
+    {
+        $entrada = $this->carbonHora($now, $hora);
+
+        return $entrada?->copy()->subHours(self::HORAS_ANTES_ENTRADA);
+    }
+
+    private function limiteJornada1(AccesoHorarioItem $item, Carbon $now): ?Carbon
+    {
+        $corte = $this->carbonHora($now, $item->hora('salida_jornada_1'))
+            ?? $this->carbonHora($now, $item->hora('entrada_jornada_2'));
+
+        if (! $corte) {
+            return null;
+        }
+
+        return $corte->copy()->addMinutes($item->gabela('salida_jornada_1') ?? 0);
     }
 
     private function yaRegistrado(Empleado $empleado, string $tipo, ?string $horaEsperada, Carbon $now): bool
@@ -320,6 +434,71 @@ class AccesoService
             ->where('tipo', $tipo)
             ->whereTime('hora_esperada', strlen($horaEsperada) === 5 ? $horaEsperada.':00' : $horaEsperada)
             ->exists();
+    }
+
+    private function puntualidadSlot(Empleado $empleado, string $tipo, Carbon $now, string $campo): array
+    {
+        $item = $this->itemHorarioHoy($empleado, $now);
+
+        if (! $item || ! $item->hora($campo)) {
+            return $this->puntualidadVacia();
+        }
+
+        return $this->calcularPuntualidadHora($item->hora($campo), $now, $tipo, 0);
+    }
+
+    private function campoUltimaSalida(?AccesoHorarioItem $item): string
+    {
+        if ($item?->hora('salida_jornada_2')) {
+            return 'salida_jornada_2';
+        }
+
+        return 'salida_jornada_1';
+    }
+
+    private function clasificarOcasional(Empleado $empleado, Carbon $salidaEn, string $horaRegreso): int
+    {
+        $item = $this->itemHorarioHoy($empleado, $salidaEn);
+        $esperado = $this->carbonHora($salidaEn, $horaRegreso);
+
+        if ($esperado && $esperado->lt($salidaEn)) {
+            return 5;
+        }
+
+        if (! $item || $item->esDescanso()) {
+            return 1;
+        }
+
+        $salidaJ1 = $this->carbonHora($salidaEn, $item->hora('salida_jornada_1'));
+        $entradaJ2 = $this->carbonHora($salidaEn, $item->hora('entrada_jornada_2'));
+        $salidaJ2 = $this->carbonHora($salidaEn, $item->hora('salida_jornada_2'));
+        $ultimaSalida = $salidaJ2 ?? $salidaJ1;
+
+        if ($ultimaSalida && ! $salidaEn->lt($ultimaSalida)) {
+            return 5;
+        }
+
+        if ($ultimaSalida && $esperado && ! $esperado->lt($ultimaSalida)) {
+            return 5;
+        }
+
+        if ($entradaJ2 && ! $salidaEn->lt($entradaJ2)) {
+            return 2;
+        }
+
+        if ($salidaJ1 && $esperado && $esperado->lt($salidaJ1)) {
+            return 1;
+        }
+
+        if ($salidaJ1 && ! $salidaEn->lt($salidaJ1)) {
+            return 4;
+        }
+
+        if ($entradaJ2 && $esperado && ! $esperado->lt($entradaJ2)) {
+            return 3;
+        }
+
+        return 1;
     }
 
     private function calcularPuntualidad(Empleado $empleado, string $tipo, Carbon $now, ?string $campo = null): array
@@ -390,8 +569,30 @@ class AccesoService
         array $puntualidad,
         ?int $salidaOcasionalId = null
     ): AccesoRegistro {
+        $existente = AccesoRegistro::query()
+            ->where('empleado_id', $empleado->id)
+            ->where('tipo', $tipo)
+            ->where('fecha', $now->toDateString());
+
+        if ($puntualidad['hora_esperada']) {
+            $existente->whereTime('hora_esperada', $puntualidad['hora_esperada']);
+        } else {
+            $existente->whereTime('hora', $now->format('H:i:s'));
+        }
+
+        $ya = $existente->first();
+
+        if ($ya) {
+            if ($ya->id_horario === null) {
+                $ya->update(['id_horario' => $this->idHorarioEmpleado($empleado)]);
+            }
+
+            return $ya;
+        }
+
         return AccesoRegistro::query()->create([
             'empleado_id' => $empleado->id,
+            'id_horario' => $this->idHorarioEmpleado($empleado),
             'terminal_id' => $terminal?->id,
             'salida_ocasional_id' => $salidaOcasionalId,
             'tipo' => $tipo,
@@ -428,8 +629,14 @@ class AccesoService
     {
         return AccesoRegistro::query()
             ->where('empleado_id', $empleado->id)
-            ->where('fecha', $now->toDateString())
-            ->whereNull('salida_ocasional_id');
+            ->where('fecha', $now->toDateString());
+    }
+
+    private function idHorarioEmpleado(Empleado $empleado): ?int
+    {
+        $empleado->loadMissing('asignacionHorario');
+
+        return $empleado->asignacionHorario?->horario_id;
     }
 
     private function itemHorarioHoy(Empleado $empleado, Carbon $now): ?AccesoHorarioItem
@@ -456,13 +663,13 @@ class AccesoService
 
         if ($tipo === 'entrada') {
             return $conteo === 0
-                ? $this->primerCampo($item, ['entrada_manana', 'entrada_tarde'])
-                : $this->primerCampo($item, ['entrada_tarde', 'entrada_manana']);
+                ? $this->primerCampo($item, ['entrada_jornada_1', 'entrada_jornada_2'])
+                : $this->primerCampo($item, ['entrada_jornada_2', 'entrada_jornada_1']);
         }
 
         return $conteo === 0
-            ? $this->primerCampo($item, ['salida_manana', 'salida_tarde'])
-            : $this->primerCampo($item, ['salida_tarde', 'salida_manana']);
+            ? $this->primerCampo($item, ['salida_jornada_1', 'salida_jornada_2'])
+            : $this->primerCampo($item, ['salida_jornada_2', 'salida_jornada_1']);
     }
 
     private function primerCampo(AccesoHorarioItem $item, array $campos): ?string
@@ -482,41 +689,16 @@ class AccesoService
             return null;
         }
 
+        $hora = strlen($hora) === 5 ? $hora : substr($hora, 0, 5);
+
         return Carbon::createFromFormat('Y-m-d H:i', $now->toDateString().' '.$hora, $now->timezone);
     }
 
-    private function marcarVencidas(Empleado $empleado): ?array
-    {
-        $hoy = now()->toDateString();
-
-        $vencidas = AccesoSalidaOcasional::query()
-            ->where('empleado_id', $empleado->id)
-            ->where('estado', 'abierta')
-            ->whereDate('salida_en', '<', $hoy)
-            ->get();
-
-        if ($vencidas->isEmpty()) {
-            return null;
-        }
-
-        $ultima = $vencidas->sortByDesc('salida_en')->first();
-
-        AccesoSalidaOcasional::query()
-            ->whereIn('id', $vencidas->pluck('id'))
-            ->update(['estado' => 'vencida']);
-
-        return [
-            'date' => $ultima->salida_en->locale('es')->isoFormat('D MMM'),
-            'time' => $ultima->salida_en->format('H:i'),
-        ];
-    }
-
-    private function salidaAbiertaHoy(Empleado $empleado): ?array
+    public function salidaAbierta(Empleado $empleado): ?array
     {
         $abierta = AccesoSalidaOcasional::query()
             ->where('empleado_id', $empleado->id)
             ->where('estado', 'abierta')
-            ->whereDate('salida_en', now()->toDateString())
             ->latest('salida_en')
             ->first();
 
@@ -526,6 +708,8 @@ class AccesoService
 
         return [
             'time' => $abierta->salida_en->format('H:i'),
+            'date' => $abierta->salida_en->locale('es')->isoFormat('D MMM'),
+            'today' => $abierta->salida_en->isToday(),
             'reason' => $abierta->motivo_texto,
             'back' => substr((string) $abierta->hora_regreso_esperada, 0, 5),
         ];

@@ -5,7 +5,9 @@
 
 @section('content')
 @php
-    $conHorario = collect($botones)->contains(fn ($boton) => ! empty($boton['campo']));
+    $slots = collect($botones)->filter(fn ($boton) => $boton['tipo'] !== 'salida_ocasional');
+    $conHorario = $slots->contains(fn ($boton) => ! empty($boton['campo']));
+    $nSlots = $conHorario ? $slots->count() : 0;
 @endphp
 <div class="action-head">
     <div>
@@ -25,7 +27,7 @@
     </div>
 @endif
 
-<div class="action-grid {{ $conHorario ? 'action-slots' : '' }}">
+<div class="action-grid {{ $conHorario ? 'action-slots action-slots-'.$nSlots : '' }}">
     @foreach ($botones as $boton)
         <form method="POST" action="{{ route('kiosko.accion.elegir') }}" @class(['action-occ-span' => $conHorario && $boton['tipo'] === 'salida_ocasional'])>
             @csrf
@@ -37,6 +39,9 @@
                 <div class="action-dot"></div>
                 <div class="action-title">{{ $boton['label'] }}</div>
                 <div class="action-sub">{{ $boton['sub'] }}</div>
+                @if (! empty($boton['nota']))
+                    <div class="action-note">{{ $boton['nota'] }}</div>
+                @endif
             </button>
         </form>
     @endforeach
