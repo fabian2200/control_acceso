@@ -124,6 +124,7 @@ class AccesoService
             'hora_regreso_esperada' => $horaRegreso,
             'foto_salida' => $fotoPath,
             'estado' => 'abierta',
+            'sincronizado' => false,
         ]);
 
         $caso = $this->clasificarOcasional($empleado, $now, $horaRegreso);
@@ -210,6 +211,7 @@ class AccesoService
             'minutos_tarde' => $minutosTarde,
             'estado' => 'cerrada',
             'terminal_id' => $abierta->terminal_id ?: $terminal?->id,
+            'sincronizado' => false,
         ]);
 
         $salidaHora = $abierta->salida_en->format('H:i');
@@ -605,7 +607,7 @@ class AccesoService
             'llego_temprano' => $puntualidad['llego_temprano'],
             'salio_temprano' => $puntualidad['salio_temprano'],
             'salio_tarde' => $puntualidad['salio_tarde'],
-            'sincronizado' => true,
+            'sincronizado' => false,
         ]);
     }
 

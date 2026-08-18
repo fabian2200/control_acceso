@@ -5,7 +5,12 @@ alwaysApply: true
 
 # Control de Acceso
 
-Kiosko táctil de recepción + panel admin. App Laravel en `kiosko/`. UI en español. Zona horaria `America/Bogota`.
+Kiosko táctil de recepción (offline-first) + panel admin/API en NUBE. Zona horaria `America/Bogota`. UI en español.
+
+## Apps
+
+- Kiosko (`kiosko/`): marcación local. Formularios Blade + sesión. **No** tiene `/admin`.
+- NUBE (`nube/`): panel admin de horarios/asignaciones + API de sync.
 
 ## Stack
 
@@ -16,12 +21,14 @@ Kiosko táctil de recepción + panel admin. App Laravel en `kiosko/`. UI en espa
 ## Dónde vive cada cosa
 
 - Flujo kiosko: `kiosko/app/Http/Controllers/Kiosko/`, vistas `resources/views/kiosko/`
-- Admin (`/admin`): `Controllers/Admin/`, guard `admin_acceso`
-- Lógica de marcas/puntualidad: `app/Services/AccesoService.php`
+- Admin (`nube/admin`): `nube/app/Http/Controllers/Admin/`, guard `admin_acceso`
+- API NUBE: `nube/routes/api.php` (`/api/health`, `/api/sync/catalogo`, `/api/sync/marcas`)
+- Lógica de marcas/puntualidad: `kiosko/app/Services/AccesoService.php`
+- Sync LOCAL↔NUBE: `kiosko/app/Services/AccesoSyncService.php` y `php artisan acceso:sync`
 - Sesión del kiosko: `app/Support/KioskoState.php` (clave `kiosko`)
-- Config: `config/acceso.php` (`ACCESO_TERMINAL`, `ACCESO_UBICACION`, etc.)
-- Estilos: `public/css/kiosko.css` y `public/css/admin.css`
-- JS: `public/js/*.js` (teclado, cédula, cámara, hora)
+- Config kiosko: `config/acceso.php` (`ACCESO_TERMINAL`, `ACCESO_API_URL`, `ACCESO_API_TOKEN`)
+- Estilos kiosko: `public/css/kiosko.css`
+- Estilos admin: `nube/public/css/admin.css`
 
 ## Flujo kiosko
 
@@ -31,6 +38,8 @@ Tipos: `entrada`, `salida`, `salida_ocasional`, `regreso`.
 
 Horario del día: **jornada 1** y **jornada 2** (opcional). Un solo bloque (p. ej. 08:00–15:00) se llena solo en jornada 1. Columnas SQL: `entrada_jornada_1`/`salida_jornada_1` y `entrada_jornada_2`/`salida_jornada_2`.
 
+La marcación nunca espera a la NUBE. `acceso_registros.sincronizado` y `acceso_salidas_ocasionales.sincronizado`: `0` pendiente, `1` confirmado.
+
 ## Tablas Workboard (no crear ni alterar salvo SQL explícito)
 
 `empleados`, `users`, `permisos`, `cargos`, `departamentos`, `empresas`. FKs legacy sin `*_id` (`empleado.cargo`, `users.empleado`, `permisos.empleado`). Modelos Workboard: `$timestamps = false`.
@@ -39,6 +48,6 @@ Horario del día: **jornada 1** y **jornada 2** (opcional). Un solo bloque (p. e
 
 - Controladores delgados; reglas de negocio en `AccesoService`
 - Validar en el controlador; persistir con Eloquent
-- No añadir APIs JSON ni SPA; el kiosko es formularios + sesión
-- No reescribir el prototipo HTML de la raíz; la app canónica es `kiosko/`
+- El kiosko no expone API JSON de negocio; la API vive en `nube/`
+- No reescribir el prototipo HTML de la raíz
 ---

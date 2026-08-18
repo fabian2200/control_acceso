@@ -1,0 +1,36 @@
+<?php
+
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\EmpleadoController;
+use App\Http\Controllers\Admin\HorarioController;
+use App\Http\Controllers\Admin\LoginController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', function () {
+    return auth('admin_acceso')->check()
+        ? redirect()->route('admin.dashboard')
+        : redirect()->route('admin.login');
+});
+
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::middleware('guest:admin_acceso')->group(function () {
+        Route::get('/login', [LoginController::class, 'show'])->name('login');
+        Route::post('/login', [LoginController::class, 'login'])->name('login.guardar');
+    });
+
+    Route::middleware('auth:admin_acceso')->group(function () {
+        Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+        Route::get('/', [DashboardController::class, 'show'])->name('dashboard');
+
+        Route::get('/horarios', [HorarioController::class, 'index'])->name('horarios.index');
+        Route::get('/horarios/crear', [HorarioController::class, 'crear'])->name('horarios.crear');
+        Route::post('/horarios', [HorarioController::class, 'guardar'])->name('horarios.guardar');
+        Route::get('/horarios/{horario}/editar', [HorarioController::class, 'editar'])->name('horarios.editar');
+        Route::put('/horarios/{horario}', [HorarioController::class, 'actualizar'])->name('horarios.actualizar');
+        Route::delete('/horarios/{horario}', [HorarioController::class, 'eliminar'])->name('horarios.eliminar');
+
+        Route::get('/empleados', [EmpleadoController::class, 'index'])->name('empleados.index');
+        Route::put('/empleados/{empleado}/horario', [EmpleadoController::class, 'asignar'])->name('empleados.asignar');
+        Route::post('/empleados/asignar-lote', [EmpleadoController::class, 'asignarLote'])->name('empleados.asignar-lote');
+    });
+});

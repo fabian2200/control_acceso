@@ -23,7 +23,7 @@
                 <div class="confirm-meta">{{ $confirm['meta'] }}</div>
             @endif
         </div>
-        <p class="confirm-note">Registro con foto sincronizado con el servidor.</p>
+        <p class="confirm-note">Registro guardado en este kiosko. Se enviará a la NUBE cuando haya conexión.</p>
         <div class="confirm-bar-track">
             <div class="confirm-bar" style="animation:bar {{ $autoMs }}ms linear both"></div>
         </div>

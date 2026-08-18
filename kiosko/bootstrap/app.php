@@ -16,21 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'kiosko.sesion' => \App\Http\Middleware\EnsureKioskoSession::class,
         ]);
 
-        $middleware->redirectGuestsTo(function (Request $request) {
-            if ($request->is('admin') || $request->is('admin/*')) {
-                return route('admin.login');
-            }
-
-            return route('kiosko.cedula');
-        });
-
-        $middleware->redirectUsersTo(function (Request $request) {
-            if ($request->is('admin') || $request->is('admin/*')) {
-                return route('admin.dashboard');
-            }
-
-            return route('kiosko.cedula');
-        });
+        $middleware->redirectGuestsTo(fn (Request $request) => route('kiosko.cedula'));
+        $middleware->redirectUsersTo(fn (Request $request) => route('kiosko.cedula'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
