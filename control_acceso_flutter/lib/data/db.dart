@@ -1,7 +1,7 @@
-import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../domain/hora_fmt.dart';
 import '../domain/models.dart';
 import 'schema.dart';
 
@@ -231,14 +231,14 @@ class AccesoDb {
     final tipo = '${row['tipo']}';
     final cuando = DateTime.tryParse('${row['registrado_en']}'.replaceFirst(' ', 'T')) ?? DateTime.now();
     final tarde = (row['llego_tarde'] as int? ?? 0) + (row['salio_tarde'] as int? ?? 0);
-    final esperada = row['hora_esperada'] == null ? null : '${row['hora_esperada']}'.substring(0, 5);
+    final esperada = HoraFmt.from(row['hora_esperada']);
     return LogItem(
       cuando: cuando,
       tipo: tipo,
       titulo: _tituloTipo(tipo),
       detalle: [
-        (row['hora'] as String?)?.substring(0, 5) ?? '',
-        if (esperada != null) 'esperada $esperada',
+        HoraFmt.from(row['hora']),
+        if (esperada.isNotEmpty) 'esperada $esperada',
         if (tarde > 0) 'tarde $tarde min',
       ].where((s) => s.isNotEmpty).join(' · '),
       alerta: tarde > 0,
@@ -253,11 +253,11 @@ class AccesoDb {
         tipo: 'salida_ocasional',
         titulo: 'Salida ocasional',
         detalle: [
-          DateFormat('HH:mm').format(salida),
+          HoraFmt.of(salida),
           if ((row['motivo_texto'] as String?)?.isNotEmpty == true) '${row['motivo_texto']}',
           if ((row['autorizado_por'] as String?)?.isNotEmpty == true) 'autorizado por ${row['autorizado_por']}',
           if ((row['hora_regreso_esperada'] as String?)?.isNotEmpty == true)
-            'regreso ${_hhmm(row['hora_regreso_esperada'])}',
+            'regreso ${HoraFmt.from(row['hora_regreso_esperada'])}',
         ].join(' · '),
       );
     }
@@ -269,17 +269,12 @@ class AccesoDb {
         tipo: 'regreso',
         titulo: 'Regreso',
         detalle: [
-          DateFormat('HH:mm').format(regreso),
+          HoraFmt.of(regreso),
           if (tarde > 0) 'tarde $tarde min',
         ].join(' · '),
         alerta: tarde > 0,
       );
     }
-  }
-
-  String _hhmm(Object? v) {
-    final s = '${v ?? ''}';
-    return s.length >= 5 ? s.substring(0, 5) : s;
   }
 
   String _ymd(DateTime d) =>

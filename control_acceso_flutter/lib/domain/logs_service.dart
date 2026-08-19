@@ -1,7 +1,6 @@
-import 'package:intl/intl.dart';
-
 import '../data/db.dart';
 import '../sync/api_client.dart';
+import 'hora_fmt.dart';
 import 'models.dart';
 
 class LogsService {
@@ -32,13 +31,13 @@ class LogsService {
       final tipo = '${map['tipo']}';
       final cuando = _dt(map['registrado_en']) ?? DateTime.now();
       final tarde = _int(map['llego_tarde']) + _int(map['salio_tarde']);
-      final esperada = _hhmm(map['hora_esperada']);
+      final esperada = HoraFmt.from(map['hora_esperada']);
       items.add(LogItem(
         cuando: cuando,
         tipo: tipo,
         titulo: _titulo(tipo),
         detalle: [
-          _hhmm(map['hora']),
+          HoraFmt.from(map['hora']),
           if (esperada.isNotEmpty) 'esperada $esperada',
           if (tarde > 0) 'tarde $tarde min',
         ].where((s) => s.isNotEmpty).join(' · '),
@@ -55,10 +54,10 @@ class LogsService {
           tipo: 'salida_ocasional',
           titulo: 'Salida ocasional',
           detalle: [
-            DateFormat('HH:mm').format(salida),
+            HoraFmt.of(salida),
             if ('${map['motivo_texto'] ?? ''}'.isNotEmpty) '${map['motivo_texto']}',
             if ('${map['autorizado_por'] ?? ''}'.isNotEmpty) 'autorizado por ${map['autorizado_por']}',
-            if (_hhmm(map['hora_regreso_esperada']).isNotEmpty) 'regreso ${_hhmm(map['hora_regreso_esperada'])}',
+            if (HoraFmt.from(map['hora_regreso_esperada']).isNotEmpty) 'regreso ${HoraFmt.from(map['hora_regreso_esperada'])}',
           ].join(' · '),
         ));
       }
@@ -70,7 +69,7 @@ class LogsService {
           tipo: 'regreso',
           titulo: 'Regreso',
           detalle: [
-            DateFormat('HH:mm').format(regreso),
+            HoraFmt.of(regreso),
             if (tarde > 0) 'tarde $tarde min',
           ].join(' · '),
           alerta: tarde > 0,
@@ -89,12 +88,6 @@ class LogsService {
   int _int(Object? v) {
     if (v is int) return v;
     return int.tryParse('${v ?? 0}') ?? 0;
-  }
-
-  String _hhmm(Object? v) {
-    if (v == null) return '';
-    final s = v.toString();
-    return s.length >= 5 ? s.substring(0, 5) : s;
   }
 
   String _titulo(String tipo) {

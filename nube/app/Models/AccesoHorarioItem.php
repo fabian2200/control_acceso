@@ -83,7 +83,7 @@ class AccesoHorarioItem extends Model
 
     private function horaConGabela(string $campo): string
     {
-        $hora = $this->hora($campo) ?? '—';
+        $hora = $this->horaAmPm($this->hora($campo));
         $gabela = $this->gabela($campo);
 
         if (! $gabela) {
@@ -91,5 +91,16 @@ class AccesoHorarioItem extends Model
         }
 
         return $hora.' (+'.$gabela.')';
+    }
+
+    private function horaAmPm(?string $hora): string
+    {
+        if ($hora === null || $hora === '') {
+            return '—';
+        }
+
+        $dt = \DateTime::createFromFormat('H:i', substr($hora, 0, 5));
+
+        return $dt ? strtoupper($dt->format('h:i A')) : $hora;
     }
 }

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../domain/hora_fmt.dart';
 import 'theme.dart';
 
 class KioskHeader extends StatefulWidget {
@@ -51,7 +52,7 @@ class _KioskHeaderState extends State<KioskHeader> {
           const Icon(Icons.schedule, size: 26, color: KioskColors.green),
           const SizedBox(width: 8),
           Text(
-            DateFormat('hh:mm:ss a').format(now).toUpperCase(),
+            HoraFmt.of(now, seconds: true),
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w700,

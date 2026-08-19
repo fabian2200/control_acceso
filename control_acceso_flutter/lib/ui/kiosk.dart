@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../config.dart';
 import '../data/db.dart';
 import '../domain/acceso_service.dart';
+import '../domain/hora_fmt.dart';
 import '../domain/logs_service.dart';
 import '../domain/models.dart';
 import '../sync/sync_service.dart';
@@ -672,7 +674,7 @@ class _CedulaScreenState extends State<CedulaScreen> {
                       const Icon(Icons.schedule, size: 56, color: KioskColors.green),
                       const SizedBox(width: 10),
                       Text(
-                        DateFormat('hh:mm:ss a').format(now).toUpperCase(),
+                        HoraFmt.of(now, seconds: true),
                         style: const TextStyle(
                           fontSize: 56,
                           fontWeight: FontWeight.w800,
@@ -1360,12 +1362,12 @@ class PermisosScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('${p.horaInicio} – ${p.horaFin}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
+                            Text('${HoraFmt.from(p.horaInicio)} – ${HoraFmt.from(p.horaFin)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
                             const SizedBox(height: 10),
                             Text(p.motivo, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: KioskColors.ink)),
                             const SizedBox(height: 12),
                             Text(
-                              [if (p.rango.isNotEmpty) p.rango, 'Regreso esperado ${p.horaFin}'].join('   '),
+                              [if (p.rango.isNotEmpty) p.rango, 'Regreso esperado ${HoraFmt.from(p.horaFin)}'].join('   '),
                               style: const TextStyle(fontSize: 15, color: KioskColors.muted),
                             ),
                           ],
@@ -1393,86 +1395,122 @@ class HoraScreen extends StatefulWidget {
 }
 
 class _HoraScreenState extends State<HoraScreen> {
-  String digits = '';
+  late DateTime selected;
+  int pickerGen = 0;
 
-  String get display {
-    final d = digits.padRight(4, '_');
-    return '${d.substring(0, 2)}:${d.substring(2, 4)}';
+  @override
+  void initState() {
+    super.initState();
+    selected = _alMinuto(DateTime.now().add(const Duration(minutes: 30)));
   }
 
+  DateTime _alMinuto(DateTime dt) => DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
+
+  String get digits => DateFormat('HHmm').format(selected);
+
   void addMins(int mins) {
-    final now = DateTime.now().add(Duration(minutes: mins));
-    setState(() => digits = DateFormat('HHmm').format(now));
+    setState(() {
+      selected = _alMinuto(DateTime.now().add(Duration(minutes: mins)));
+      pickerGen++;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(56, 44, 32, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(56, 44, 56, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Eyebrow('Salida ocasional · paso 3 de 4', color: Color(0xFFB45309)),
+          const SizedBox(height: 14),
+          const Text('Hora de regreso esperada', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+          const SizedBox(height: 10),
+          Text(
+            [
+              'Motivo: ${widget.controller.motivoTexto ?? 'Diligencia empresarial'}',
+              if ((widget.controller.mandadoPor ?? '').isNotEmpty) 'Autorizado por: ${widget.controller.mandadoPor}',
+              'Elige a qué hora esperas volver.',
+            ].join('. '),
+            style: const TextStyle(fontSize: 20, color: KioskColors.muted),
+          ),
+          const SizedBox(height: 22),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: KioskColors.line, width: 2),
+            ),
+            child: Row(
               children: [
-                const Eyebrow('Salida ocasional · paso 3 de 4', color: Color(0xFFB45309)),
-                const SizedBox(height: 14),
-                const Text('Hora de regreso esperada', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
-                const SizedBox(height: 10),
+                const Icon(Icons.schedule, size: 42, color: Color(0xFFB45309)),
+                const SizedBox(width: 18),
                 Text(
-                  [
-                    'Motivo: ${widget.controller.motivoTexto ?? 'Diligencia empresarial'}',
-                    if ((widget.controller.mandadoPor ?? '').isNotEmpty) 'Autorizado por: ${widget.controller.mandadoPor}',
-                    'Indica a qué hora esperas volver.',
-                  ].join('. '),
-                  style: const TextStyle(fontSize: 20, color: KioskColors.muted),
-                ),
-                const SizedBox(height: 28),
-                Text(display, style: const TextStyle(fontSize: 96, fontWeight: FontWeight.w200, color: KioskColors.ink, letterSpacing: 1)),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    _Quick('+30 min', () => addMins(30)),
-                    const SizedBox(width: 14),
-                    _Quick('+1 h', () => addMins(60)),
-                    const SizedBox(width: 14),
-                    _Quick('+2 h', () => addMins(120)),
-                  ],
-                ),
-                const Spacer(),
-                Row(
-                  children: [
-                    GhostButton(label: 'Volver', onTap: widget.controller.volverHora, tall: true),
-                    const SizedBox(width: 16),
-                    PrimaryButton(
-                      label: 'Registrar salida',
-                      onTap: digits.length == 4 ? () => widget.controller.guardarHora(digits) : null,
-                      enabled: digits.length == 4,
-                    ),
-                  ],
+                  HoraFmt.of(selected),
+                  style: const TextStyle(fontSize: 52, fontWeight: FontWeight.w600, color: KioskColors.ink, letterSpacing: 0.4),
                 ),
               ],
             ),
           ),
-        ),
-        SizedBox(
-          width: 520,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(0, 44, 56, 44),
-            child: KioskKeypad(
-              compact: true,
-              onDigit: (d) {
-                if (digits.length >= 4) return;
-                setState(() => digits += d);
-              },
-              onBack: () {
-                if (digits.isEmpty) return;
-                setState(() => digits = digits.substring(0, digits.length - 1));
-              },
+          const SizedBox(height: 16),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: KioskColors.line, width: 2),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+                  child: CupertinoTheme(
+                    data: const CupertinoThemeData(
+                      textTheme: CupertinoTextThemeData(
+                        dateTimePickerTextStyle: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w500,
+                          color: KioskColors.ink,
+                        ),
+                      ),
+                    ),
+                    child: CupertinoDatePicker(
+                      key: ValueKey(pickerGen),
+                      mode: CupertinoDatePickerMode.time,
+                      use24hFormat: false,
+                      initialDateTime: selected,
+                      onDateTimeChanged: (dt) => setState(() => selected = _alMinuto(dt)),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _Quick('+30 min', () => addMins(30)),
+              const SizedBox(width: 14),
+              _Quick('+1 h', () => addMins(60)),
+              const SizedBox(width: 14),
+              _Quick('+2 h', () => addMins(120)),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              GhostButton(label: 'Volver', onTap: widget.controller.volverHora, tall: true),
+              const SizedBox(width: 16),
+              PrimaryButton(
+                label: 'Registrar salida',
+                onTap: () => widget.controller.guardarHora(digits),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

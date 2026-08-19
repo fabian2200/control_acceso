@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../config.dart';
+import '../domain/hora_fmt.dart';
 import 'kiosk.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -184,9 +185,9 @@ class AdminLogScreen extends StatelessWidget {
                             child: Row(
                               children: [
                                 SizedBox(
-                                  width: 140,
+                                  width: 168,
                                   child: Text(
-                                    DateFormat("d MMM HH:mm", 'es').format(item.cuando),
+                                    '${DateFormat("d MMM", 'es').format(item.cuando)} ${HoraFmt.of(item.cuando)}',
                                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: KioskColors.ink),
                                   ),
                                 ),

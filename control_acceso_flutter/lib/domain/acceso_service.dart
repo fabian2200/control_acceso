@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../config.dart';
 import '../data/db.dart';
+import 'hora_fmt.dart';
 import 'models.dart';
 
 class AccesoService {
@@ -69,11 +70,11 @@ class AccesoService {
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(salida.year, salida.month, salida.day);
     return OpenExit(
-      time: DateFormat('HH:mm').format(salida),
+      time: HoraFmt.of(salida),
       date: DateFormat("d MMM", 'es').format(salida),
       today: day == today,
       reason: row['motivo_texto'] as String?,
-      back: _hhmm(row['hora_regreso_esperada']),
+      back: HoraFmt.from(row['hora_regreso_esperada']),
     );
   }
 
@@ -124,16 +125,17 @@ class AccesoService {
       final motivo = estado['motivo'] as String?;
       final enabled = estado['enabled'] as bool;
       final porPermiso = estado['porPermiso'] == true;
+      final horaAm = HoraFmt.from(hora);
       final ventana = porPermiso && graciaPermiso != null
-          ? 'Permiso hasta ${DateFormat('HH:mm').format(graciaPermiso)}'
+          ? 'Permiso hasta ${HoraFmt.of(graciaPermiso)}'
           : _textoVentana(item, slot, hora, now);
       botones.add(BotonJornada(
         tipo: slot['tipo'] as String,
         campo: slot['campo'] as String,
         label: slot['label'] as String,
         sub: enabled
-            ? (ventana == null ? hora : '$hora  ·  $ventana')
-            : (motivo == 'Ya registrada' ? 'Ya registrada' : hora),
+            ? (ventana == null ? horaAm : '$horaAm  ·  $ventana')
+            : (motivo == 'Ya registrada' ? 'Ya registrada' : horaAm),
         nota: (!enabled && motivo != null && motivo != 'Ya registrada' && motivo != hora)
             ? motivo
             : null,
@@ -216,12 +218,12 @@ class AccesoService {
     await _crearRegistro(empleadoId, 'entrada', now, p, foto: foto);
     return Confirmacion(
       title: 'Entrada registrada',
-      time: DateFormat('HH:mm').format(now),
+      time: HoraFmt.of(now),
       color: (p['llego_tarde'] as int) > 0 ? ColorData.amber : ColorData.green,
       pillText: _pillTexto('entrada', p),
       pillBg: _pillBg('entrada', p),
       pillFg: _pillFg('entrada', p),
-      meta: p['hora_esperada'] != null ? 'Esperada ${_hhmm(p['hora_esperada'])}' : null,
+      meta: p['hora_esperada'] != null ? 'Esperada ${HoraFmt.from(p['hora_esperada'])}' : null,
       acciones: [_etiquetaAccion('entrada', campo)],
     );
   }
@@ -232,12 +234,12 @@ class AccesoService {
     await _crearRegistro(empleadoId, 'salida', now, p, foto: foto);
     return Confirmacion(
       title: 'Salida registrada',
-      time: DateFormat('HH:mm').format(now),
+      time: HoraFmt.of(now),
       color: (p['salio_tarde'] as int) > 0 ? ColorData.amber : ColorData.blue,
       pillText: _pillTexto('salida', p),
       pillBg: _pillBg('salida', p),
       pillFg: _pillFg('salida', p),
-      meta: p['hora_esperada'] != null ? 'Esperada ${_hhmm(p['hora_esperada'])}' : 'Fin de jornada',
+      meta: p['hora_esperada'] != null ? 'Esperada ${HoraFmt.from(p['hora_esperada'])}' : 'Fin de jornada',
       acciones: [_etiquetaAccion('salida', campo)],
     );
   }
@@ -329,18 +331,19 @@ class AccesoService {
     }
 
     final pill = motivo.length > 42 ? '${motivo.substring(0, 40).trim()}…' : motivo;
+    final horaAm = HoraFmt.from(hora);
     return Confirmacion(
       title: caso == 5 ? 'Salida de jornada registrada' : 'Salida ocasional registrada',
-      time: DateFormat('HH:mm').format(now),
+      time: HoraFmt.of(now),
       color: ColorData.amber,
       pillText: pill,
       pillBg: const Color(0xFFFFFBEB),
       pillFg: const Color(0xFFB45309),
       meta: caso == 5
-          ? 'Cierre del día · regreso esperado $hora'
+          ? 'Cierre del día · regreso esperado $horaAm'
           : quedaAbierta
-              ? 'Regreso esperado $hora'
-              : 'Cerrada · regreso esperado $hora',
+              ? 'Regreso esperado $horaAm'
+              : 'Cerrada · regreso esperado $horaAm',
       acciones: acciones,
       casoOcasional: caso,
     );
@@ -358,7 +361,7 @@ class AccesoService {
     if (rows.isEmpty) {
       return Confirmacion(
         title: 'Salida ocasional cerrada',
-        time: DateFormat('HH:mm').format(now),
+        time: HoraFmt.of(now),
         color: ColorData.green,
         pillText: 'Salida cerrada',
         pillBg: const Color(0xFFECFDF3),
@@ -428,14 +431,14 @@ class AccesoService {
 
     final motivo = abierta['motivo_texto'] as String? ?? '';
     final meta = [
-      'Salió ${DateFormat('HH:mm').format(salidaEn)}',
-      if (esperado.isNotEmpty) 'esperado $esperado',
+      'Salió ${HoraFmt.of(salidaEn)}',
+      if (esperado.isNotEmpty) 'esperado ${HoraFmt.from(esperado)}',
       if (motivo.isNotEmpty) motivo,
     ].join(' · ');
 
     return Confirmacion(
       title: 'Salida ocasional cerrada',
-      time: DateFormat('HH:mm').format(horaCierre),
+      time: HoraFmt.of(horaCierre),
       color: minutosTarde > 0 ? ColorData.amber : ColorData.green,
       pillText: minutosTarde > 0 ? 'Tarde · $minutosTarde min' : 'Salida cerrada',
       pillBg: minutosTarde > 0 ? const Color(0xFFFFFBEB) : const Color(0xFFECFDF3),
@@ -524,7 +527,7 @@ class AccesoService {
         if (!salidaPorEntrada) {
           return {
             'enabled': false,
-            'motivo': 'Puedes marcar desde las ${DateFormat('HH:mm').format(desde)}',
+            'motivo': 'Puedes marcar desde las ${HoraFmt.of(desde)}',
           };
         }
       }
@@ -623,13 +626,13 @@ class AccesoService {
     final desde = centro.subtract(const Duration(hours: _horasAntes));
     if (slot['tipo'] == 'entrada') {
       final hasta = centro.add(const Duration(hours: _horasDespuesEntrada));
-      return '${DateFormat('HH:mm').format(desde)} – ${DateFormat('HH:mm').format(hasta)}';
+      return '${HoraFmt.of(desde)} – ${HoraFmt.of(hasta)}';
     }
     final corte = _horaCierreSalida(item, slot, now);
     if (corte != null) {
-      return '${DateFormat('HH:mm').format(desde)} – ${DateFormat('HH:mm').format(corte)}';
+      return '${HoraFmt.of(desde)} – ${HoraFmt.of(corte)}';
     }
-    return 'Desde las ${DateFormat('HH:mm').format(desde)}';
+    return 'Desde las ${HoraFmt.of(desde)}';
   }
 
   DateTime? _horaCierreSalida(Map<String, Object?> item, Map<String, String> slot, DateTime now) {
