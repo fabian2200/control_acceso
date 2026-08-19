@@ -444,6 +444,8 @@ class KioskShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ancho de la tablet calcular
+    final width = MediaQuery.of(context).size.width;
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -458,12 +460,11 @@ class KioskShell extends StatelessWidget {
             ),
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(14),
                 child: FittedBox(
                   child: Container(
-                    width: 1348,
+                    width: width + 100,
                     height: 900,
-                    padding: const EdgeInsets.fromLTRB(32, 32, 32, 38),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         begin: Alignment.topCenter,
@@ -629,7 +630,8 @@ class _CedulaScreenState extends State<CedulaScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(52, 32, 28, 28),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Center(
                     child: Image.asset('assets/logo.png', height: 192, filterQuality: FilterQuality.high),
@@ -659,6 +661,7 @@ class _CedulaScreenState extends State<CedulaScreen> {
                   const Divider(color: KioskColors.line, height: 1),
                   const SizedBox(height: 22),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(Icons.calendar_today_outlined, size: 36, color: KioskColors.green),
                       const SizedBox(width: 10),
@@ -670,13 +673,14 @@ class _CedulaScreenState extends State<CedulaScreen> {
                   ),
                   const SizedBox(height: 10),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(Icons.schedule, size: 56, color: KioskColors.green),
                       const SizedBox(width: 10),
                       Text(
                         HoraFmt.of(now, seconds: true),
                         style: const TextStyle(
-                          fontSize: 56,
+                          fontSize: 66,
                           fontWeight: FontWeight.w800,
                           color: KioskColors.ink,
                           letterSpacing: 0.4,
@@ -693,6 +697,7 @@ class _CedulaScreenState extends State<CedulaScreen> {
                       padding: const EdgeInsets.only(bottom: 14),
                       child: Text(widget.controller.homeNotice!, style: const TextStyle(fontSize: 17, color: KioskColors.muted)),
                     ),
+                  const Spacer(),
                   SizedBox(
                     height: 64,
                     child: OutlinedButton.icon(
@@ -730,9 +735,9 @@ class _CedulaScreenState extends State<CedulaScreen> {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.badge_outlined, color: KioskColors.green, size: 22),
+                      Icon(Icons.badge_outlined, color: KioskColors.green, size: 32),
                       SizedBox(width: 8),
-                      Text('Número de identificación', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                      Text('Número de identificación', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w600, color: KioskColors.ink)),
                     ],
                   ),
                   const SizedBox(height: 12),

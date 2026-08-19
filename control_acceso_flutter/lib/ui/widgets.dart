@@ -87,7 +87,7 @@ class KioskKeypad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final h = compact ? 99.0 : 105.0;
+    final h = compact ? 112.0 : 115.0;
     final gap = compact ? 10.0 : 12.0;
 
     Widget key({
