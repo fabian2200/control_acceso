@@ -187,6 +187,7 @@ class AccesoService {
     String? campo,
     int? permisoId,
     String? motivoTexto,
+    String? mandadoPor,
     String? horaRegreso,
     String? foto,
   }) {
@@ -198,6 +199,7 @@ class AccesoService {
           userId: userId,
           permisoId: permisoId,
           motivoTexto: motivoTexto,
+          mandadoPor: mandadoPor,
           horaRegreso: horaRegreso,
           foto: foto,
         ),
@@ -243,6 +245,7 @@ class AccesoService {
     int? userId,
     int? permisoId,
     String? motivoTexto,
+    String? mandadoPor,
     String? horaRegreso,
     String? foto,
   }) async {
@@ -289,6 +292,7 @@ class AccesoService {
       'id_horario': idHorario,
       'terminal_id': terminalId,
       'motivo_texto': motivo,
+      'autorizado_por': permiso != null ? null : mandadoPor,
       'permiso_id': permiso?['id'],
       'salida_en': stamp,
       'hora_regreso_esperada': hora,
@@ -304,6 +308,9 @@ class AccesoService {
     final acciones = <String>[
       quedaAbierta ? 'Salida ocasional abierta' : 'Salida ocasional cerrada',
     ];
+    if (permiso == null && (mandadoPor ?? '').isNotEmpty) {
+      acciones.add('Autorizado por $mandadoPor');
+    }
     if ([3, 4, 5].contains(caso)) {
       final campoSalida = caso == 5 ? _campoUltimaSalida(item) : 'salida_jornada_1';
       final horaRegistro = ([4, 5].contains(caso) ? regresoEn : null) ?? now;

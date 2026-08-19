@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS acceso_salidas_ocasionales (
   id_horario INTEGER,
   terminal_id INTEGER,
   motivo_texto TEXT,
+  autorizado_por TEXT,
   permiso_id INTEGER,
   salida_en TEXT NOT NULL,
   hora_regreso_esperada TEXT NOT NULL,
@@ -245,7 +246,7 @@ CREATE TABLE IF NOT EXISTS users (
       'created_at', 'updated_at',
     ],
     'acceso_salidas_ocasionales': [
-      'id', 'empleado_id', 'id_horario', 'terminal_id', 'motivo_texto', 'permiso_id',
+      'id', 'empleado_id', 'id_horario', 'terminal_id', 'motivo_texto', 'autorizado_por', 'permiso_id',
       'salida_en', 'hora_regreso_esperada', 'regreso_en', 'minutos_tarde',
       'foto_salida', 'foto_regreso', 'estado', 'revisada_rrhh', 'sincronizado',
       'created_at', 'updated_at',

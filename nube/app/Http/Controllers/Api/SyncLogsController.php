@@ -42,7 +42,7 @@ class SyncLogsController extends Controller
             ->where('empleado_id', $empleadoId)
             ->whereBetween('salida_en', [$inicio, $fin])
             ->orderBy('salida_en')
-            ->get(['motivo_texto', 'salida_en', 'hora_regreso_esperada', 'regreso_en', 'minutos_tarde', 'estado']);
+            ->get(['motivo_texto', 'autorizado_por', 'salida_en', 'hora_regreso_esperada', 'regreso_en', 'minutos_tarde', 'estado']);
 
         return response()->json([
             'ok' => true,

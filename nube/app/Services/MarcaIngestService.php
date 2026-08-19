@@ -55,6 +55,7 @@ class MarcaIngestService
                 [
                     'id_horario' => $row['id_horario'] ?? null,
                     'motivo_texto' => $row['motivo_texto'] ?? null,
+                    'autorizado_por' => $row['autorizado_por'] ?? $row['mandado_por'] ?? null,
                     'permiso_id' => $row['permiso_id'] ?? null,
                     'hora_regreso_esperada' => $row['hora_regreso_esperada'] ?? '00:00:00',
                     'regreso_en' => $regresoEn,

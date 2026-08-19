@@ -17,13 +17,21 @@ class AccesoDb {
     final path = p.join(dir, 'acceso_control.db');
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 3,
       onCreate: (db, _) async {
         for (final sql in AccesoSchema.tables) {
           await db.execute(sql);
         }
         for (final sql in AccesoSchema.indexes) {
           await db.execute(sql);
+        }
+      },
+      onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE acceso_salidas_ocasionales ADD COLUMN mandado_por TEXT');
+        }
+        if (oldVersion < 3) {
+          await db.execute('ALTER TABLE acceso_salidas_ocasionales RENAME COLUMN mandado_por TO autorizado_por');
         }
       },
     );
@@ -247,6 +255,7 @@ class AccesoDb {
         detalle: [
           DateFormat('HH:mm').format(salida),
           if ((row['motivo_texto'] as String?)?.isNotEmpty == true) '${row['motivo_texto']}',
+          if ((row['autorizado_por'] as String?)?.isNotEmpty == true) 'autorizado por ${row['autorizado_por']}',
           if ((row['hora_regreso_esperada'] as String?)?.isNotEmpty == true)
             'regreso ${_hhmm(row['hora_regreso_esperada'])}',
         ].join(' · '),

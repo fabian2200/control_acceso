@@ -19,6 +19,8 @@ enum KioskScreen {
   reconocer,
   accion,
   motivo,
+  mandado,
+  mandadoEmpleado,
   permisos,
   hora,
   camara,
@@ -55,6 +57,8 @@ class KioskController extends ChangeNotifier {
   String? origenOcasional;
   int? permisoId;
   String? motivoTexto;
+  String? mandadoPor;
+  bool mandadoDesdeLista = false;
   String? horaRegreso;
   String apiUrl = AppConfig.defaultApiUrl;
   bool busy = false;
@@ -106,6 +110,8 @@ class KioskController extends ChangeNotifier {
     origenOcasional = null;
     permisoId = null;
     motivoTexto = null;
+    mandadoPor = null;
+    mandadoDesdeLista = false;
     horaRegreso = null;
     empleadoAdmin = null;
     logsMes = const [];
@@ -184,6 +190,16 @@ class KioskController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void volverMandado() {
+    screen = KioskScreen.mandado;
+    notifyListeners();
+  }
+
+  void volverHora() {
+    screen = mandadoDesdeLista ? KioskScreen.mandadoEmpleado : KioskScreen.mandado;
+    notifyListeners();
+  }
+
   Future<void> elegir(BotonJornada boton) async {
     if (!boton.enabled || empleado == null || busy) return;
     if (openExit != null && boton.tipo != 'salida_ocasional' && !entradaDespuesCierre) {
@@ -209,15 +225,44 @@ class KioskController extends ChangeNotifier {
   void elegirOrigen(String origen) {
     origenOcasional = origen;
     permisoId = null;
+    mandadoPor = null;
+    mandadoDesdeLista = false;
     horaRegreso = null;
     if (origen == 'permiso') {
       motivoTexto = '';
       _cargarPermisos();
     } else {
       motivoTexto = 'Diligencia empresarial';
-      screen = KioskScreen.hora;
+      screen = KioskScreen.mandado;
       notifyListeners();
     }
+  }
+
+  void elegirMandadoPor(String quien) {
+    if (quien == 'Otro') {
+      unawaited(_abrirMandadoEmpleados());
+      return;
+    }
+    mandadoDesdeLista = false;
+    mandadoPor = quien;
+    screen = KioskScreen.hora;
+    notifyListeners();
+  }
+
+  Future<void> _abrirMandadoEmpleados() async {
+    mandadoDesdeLista = true;
+    mandadoPor = null;
+    empleadosAdmin = await AccesoDb.instance.empleadosAdmin();
+    screen = KioskScreen.mandadoEmpleado;
+    notifyListeners();
+  }
+
+  void elegirMandadoEmpleado(AdminEmpleado sel) {
+    final nombre = sel.nombre.trim().isEmpty ? 'Empleado ${sel.identificacion}' : sel.nombre.trim();
+    mandadoPor = nombre.length <= 80 ? nombre : '${nombre.substring(0, 79).trim()}…';
+    mandadoDesdeLista = true;
+    screen = KioskScreen.hora;
+    notifyListeners();
   }
 
   Future<void> _cargarPermisos() async {
@@ -272,7 +317,7 @@ class KioskController extends ChangeNotifier {
       return;
     }
     if (tipo == 'salida_ocasional') {
-      screen = KioskScreen.motivo;
+      screen = origenOcasional == 'otro' ? KioskScreen.hora : KioskScreen.motivo;
       notifyListeners();
       return;
     }
@@ -305,6 +350,7 @@ class KioskController extends ChangeNotifier {
         campo: campo,
         permisoId: permisoId,
         motivoTexto: motivoTexto,
+        mandadoPor: mandadoPor,
         horaRegreso: horaRegreso,
         foto: foto,
       );
@@ -524,6 +570,8 @@ class _ScreenHost extends StatelessWidget {
         KioskScreen.reconocer => ReconocerScreen(controller: controller),
         KioskScreen.accion => AccionScreen(controller: controller),
         KioskScreen.motivo => MotivoScreen(controller: controller),
+        KioskScreen.mandado => MandadoScreen(controller: controller),
+        KioskScreen.mandadoEmpleado => MandadoEmpleadoScreen(controller: controller),
         KioskScreen.permisos => PermisosScreen(controller: controller),
         KioskScreen.hora => HoraScreen(controller: controller),
         KioskScreen.camara => CameraScreen(
@@ -610,11 +658,11 @@ class _CedulaScreenState extends State<CedulaScreen> {
                   const SizedBox(height: 22),
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today_outlined, size: 46, color: KioskColors.green),
+                      const Icon(Icons.calendar_today_outlined, size: 36, color: KioskColors.green),
                       const SizedBox(width: 10),
                       Text(
                         DateFormat("d 'de' MMMM 'de' yyyy", 'es').format(now),
-                        style: const TextStyle(fontSize: 46, color: KioskColors.muted, fontWeight: FontWeight.w500),
+                        style: const TextStyle(fontSize: 36, color: KioskColors.muted, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -667,7 +715,7 @@ class _CedulaScreenState extends State<CedulaScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 28, 40, 28),
             child: Container(
-              width: 480,
+              width: 680,
               padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -688,7 +736,7 @@ class _CedulaScreenState extends State<CedulaScreen> {
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
-                    height: 56,
+                    height: 86,
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
@@ -699,7 +747,7 @@ class _CedulaScreenState extends State<CedulaScreen> {
                     child: Text(
                       empty ? 'Ingresa tu número de identificación' : cedula,
                       style: TextStyle(
-                        fontSize: empty ? 16 : 26,
+                        fontSize: empty ? 26 : 36,
                         fontWeight: empty ? FontWeight.w400 : FontWeight.w600,
                         color: empty ? KioskColors.faint : KioskColors.ink,
                         letterSpacing: empty ? 0 : 1.2,
@@ -978,7 +1026,7 @@ class MotivoScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Eyebrow('Salida ocasional · paso 1 de 3', color: Color(0xFFB45309)),
+          const Eyebrow('Salida ocasional · paso 1', color: Color(0xFFB45309)),
           const SizedBox(height: 14),
           const Text('Motivo de la salida', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
           const SizedBox(height: 12),
@@ -991,7 +1039,7 @@ class MotivoScreen extends StatelessWidget {
             children: [
               Expanded(child: _ReasonCard(title: 'Permiso', sub: 'Usa un permiso aprobado de hoy', onTap: () => controller.elegirOrigen('permiso'))),
               const SizedBox(width: 20),
-              Expanded(child: _ReasonCard(title: 'Diligencia empresarial', sub: 'Indica la hora de regreso esperada', onTap: () => controller.elegirOrigen('otro'))),
+              Expanded(child: _ReasonCard(title: 'Diligencia empresarial', sub: 'Indica quién lo autorizó y la hora de regreso', onTap: () => controller.elegirOrigen('otro'))),
             ],
           ),
           const SizedBox(height: 30),
@@ -1002,11 +1050,175 @@ class MotivoScreen extends StatelessWidget {
   }
 }
 
+class MandadoScreen extends StatelessWidget {
+  const MandadoScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  static const opciones = [
+    ('Jefe inmediato', 'Tu jefe directo autorizó la salida'),
+    ('Jefe de recursos Humanos', 'RRHH autorizó la salida'),
+    ('Gerencia', 'Gerencia autorizó la salida'),
+    ('Otro', 'Elige a la persona en la lista de empleados'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(60, 48, 60, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Eyebrow('Salida ocasional · paso 2 de 4', color: Color(0xFFB45309)),
+          const SizedBox(height: 14),
+          const Text('¿Quién lo autorizó?', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+          const SizedBox(height: 12),
+          const Text(
+            'Indica quién autorizó esta diligencia empresarial.',
+            style: TextStyle(fontSize: 20, color: KioskColors.muted),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Expanded(child: _ReasonCard(title: opciones[0].$1, sub: opciones[0].$2, height: 118, titleSize: 24, onTap: () => controller.elegirMandadoPor(opciones[0].$1))),
+              const SizedBox(width: 20),
+              Expanded(child: _ReasonCard(title: opciones[1].$1, sub: opciones[1].$2, height: 118, titleSize: 24, onTap: () => controller.elegirMandadoPor(opciones[1].$1))),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(child: _ReasonCard(title: opciones[2].$1, sub: opciones[2].$2, height: 118, titleSize: 24, onTap: () => controller.elegirMandadoPor(opciones[2].$1))),
+              const SizedBox(width: 20),
+              Expanded(child: _ReasonCard(title: opciones[3].$1, sub: opciones[3].$2, height: 118, titleSize: 24, onTap: () => controller.elegirMandadoPor(opciones[3].$1))),
+            ],
+          ),
+          const SizedBox(height: 30),
+          GhostButton(label: 'Volver', onTap: controller.volverMotivo),
+        ],
+      ),
+    );
+  }
+}
+
+class MandadoEmpleadoScreen extends StatefulWidget {
+  const MandadoEmpleadoScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  State<MandadoEmpleadoScreen> createState() => _MandadoEmpleadoScreenState();
+}
+
+class _MandadoEmpleadoScreenState extends State<MandadoEmpleadoScreen> {
+  String filtro = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final yo = widget.controller.empleado?.id;
+    final empleados = widget.controller.empleadosAdmin.where((e) {
+      if (yo != null && e.id == yo) return false;
+      if (filtro.isEmpty) return true;
+      final q = filtro.toLowerCase();
+      return e.nombre.toLowerCase().contains(q) || e.identificacion.contains(q);
+    }).toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(60, 40, 60, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Eyebrow('Salida ocasional · paso 2 de 4', color: Color(0xFFB45309)),
+          const SizedBox(height: 14),
+          const Text('¿Quién lo autorizó?', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+          const SizedBox(height: 10),
+          const Text(
+            'Selecciona al empleado que autorizó esta diligencia.',
+            style: TextStyle(fontSize: 20, color: KioskColors.muted),
+          ),
+          const SizedBox(height: 22),
+          TextField(
+            onChanged: (v) => setState(() => filtro = v.trim()),
+            style: const TextStyle(fontSize: 22),
+            decoration: InputDecoration(
+              hintText: 'Buscar por nombre o cédula',
+              prefixIcon: const Icon(Icons.search, size: 28),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: empleados.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No hay empleados para mostrar. Sincroniza el kiosko o prueba otra búsqueda.',
+                      style: TextStyle(fontSize: 20, color: KioskColors.muted),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: empleados.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) {
+                      final e = empleados[i];
+                      return Material(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          onTap: () => widget.controller.elegirMandadoEmpleado(e),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: KioskColors.line),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        e.nombre.isEmpty ? 'Empleado' : e.nombre,
+                                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: KioskColors.ink),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'C.C. ${e.identificacion}${e.cargo == null || e.cargo!.isEmpty ? '' : ' · ${e.cargo}'}',
+                                        style: const TextStyle(fontSize: 16, color: KioskColors.muted),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right, size: 32, color: KioskColors.faint),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 20),
+          GhostButton(label: 'Volver', onTap: widget.controller.volverMandado),
+        ],
+      ),
+    );
+  }
+}
+
 class _ReasonCard extends StatelessWidget {
-  const _ReasonCard({required this.title, required this.sub, required this.onTap});
+  const _ReasonCard({
+    required this.title,
+    required this.sub,
+    required this.onTap,
+    this.height = 140,
+    this.titleSize = 30,
+  });
   final String title;
   final String sub;
   final VoidCallback onTap;
+  final double height;
+  final double titleSize;
 
   @override
   Widget build(BuildContext context) {
@@ -1017,8 +1229,8 @@ class _ReasonCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          height: 140,
-          padding: const EdgeInsets.all(28),
+          height: height,
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: KioskColors.line),
@@ -1031,9 +1243,14 @@ class _ReasonCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: KioskColors.ink)),
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.w500, color: KioskColors.ink),
+                    ),
                     const SizedBox(height: 8),
-                    Text(sub, style: const TextStyle(fontSize: 16, color: KioskColors.muted)),
+                    Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, color: KioskColors.muted)),
                   ],
                 ),
               ),
@@ -1160,12 +1377,16 @@ class _HoraScreenState extends State<HoraScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Eyebrow('Salida ocasional · paso 2 de 3', color: Color(0xFFB45309)),
+                const Eyebrow('Salida ocasional · paso 3 de 4', color: Color(0xFFB45309)),
                 const SizedBox(height: 14),
                 const Text('Hora de regreso esperada', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
                 const SizedBox(height: 10),
                 Text(
-                  'Motivo: ${widget.controller.motivoTexto ?? 'Diligencia empresarial'}. Indica a qué hora esperas volver.',
+                  [
+                    'Motivo: ${widget.controller.motivoTexto ?? 'Diligencia empresarial'}',
+                    if ((widget.controller.mandadoPor ?? '').isNotEmpty) 'Autorizado por: ${widget.controller.mandadoPor}',
+                    'Indica a qué hora esperas volver.',
+                  ].join('. '),
                   style: const TextStyle(fontSize: 20, color: KioskColors.muted),
                 ),
                 const SizedBox(height: 28),
@@ -1183,7 +1404,7 @@ class _HoraScreenState extends State<HoraScreen> {
                 const Spacer(),
                 Row(
                   children: [
-                    GhostButton(label: 'Volver', onTap: widget.controller.volverMotivo, tall: true),
+                    GhostButton(label: 'Volver', onTap: widget.controller.volverHora, tall: true),
                     const SizedBox(width: 16),
                     PrimaryButton(
                       label: 'Registrar salida',

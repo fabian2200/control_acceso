@@ -57,6 +57,7 @@ class LogsService {
           detalle: [
             DateFormat('HH:mm').format(salida),
             if ('${map['motivo_texto'] ?? ''}'.isNotEmpty) '${map['motivo_texto']}',
+            if ('${map['autorizado_por'] ?? ''}'.isNotEmpty) 'autorizado por ${map['autorizado_por']}',
             if (_hhmm(map['hora_regreso_esperada']).isNotEmpty) 'regreso ${_hhmm(map['hora_regreso_esperada'])}',
           ].join(' · '),
         ));

@@ -86,7 +86,7 @@ class KioskKeypad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final h = compact ? 72.0 : 78.0;
+    final h = compact ? 99.0 : 105.0;
     final gap = compact ? 10.0 : 12.0;
 
     Widget key({
@@ -122,7 +122,7 @@ class KioskKeypad extends StatelessWidget {
         onTap: () => onDigit(label),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w500, color: KioskColors.ink),
+          style: const TextStyle(fontSize: 47, fontWeight: FontWeight.w500, color: KioskColors.ink),
         ),
       );
     }

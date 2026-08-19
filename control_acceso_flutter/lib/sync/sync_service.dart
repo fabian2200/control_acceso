@@ -170,6 +170,7 @@ class AccesoSync {
       'empleado_id': row['empleado_id'],
       'id_horario': row['id_horario'],
       'motivo_texto': row['motivo_texto'],
+      'autorizado_por': row['autorizado_por'],
       'permiso_id': row['permiso_id'],
       'salida_en': row['salida_en'],
       'hora_regreso_esperada': row['hora_regreso_esperada'],

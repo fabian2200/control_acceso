@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `acceso_salidas_ocasionales` (
   `id_horario` bigint(20) unsigned DEFAULT NULL,
   `terminal_id` bigint(20) unsigned DEFAULT NULL,
   `motivo_texto` varchar(120) DEFAULT NULL,
+  `autorizado_por` varchar(80) DEFAULT NULL,
   `permiso_id` int(11) DEFAULT NULL,
   `salida_en` datetime NOT NULL,
   `hora_regreso_esperada` time NOT NULL,
@@ -260,6 +261,25 @@ SET @has_occ_uk := (
 SET @sql := IF(@has_occ_uk = 0,
   'ALTER TABLE `acceso_salidas_ocasionales` ADD UNIQUE KEY `acceso_salidas_sync_clave_unique` (`empleado_id`,`salida_en`,`terminal_id`)',
   'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @db := DATABASE();
+SET @has_mandado := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'acceso_salidas_ocasionales' AND COLUMN_NAME = 'mandado_por'
+);
+SET @has_autorizado := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'acceso_salidas_ocasionales' AND COLUMN_NAME = 'autorizado_por'
+);
+SET @sql := IF(@has_mandado > 0 AND @has_autorizado = 0,
+  'ALTER TABLE `acceso_salidas_ocasionales` CHANGE `mandado_por` `autorizado_por` varchar(80) DEFAULT NULL',
+  IF(@has_mandado = 0 AND @has_autorizado = 0,
+    'ALTER TABLE `acceso_salidas_ocasionales` ADD COLUMN `autorizado_por` varchar(80) DEFAULT NULL AFTER `motivo_texto`',
+    'SELECT 1')
 );
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
