@@ -992,22 +992,60 @@ class _ActionCard extends StatelessWidget {
                       ),
                     ],
                   )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(color: fg.withValues(alpha: 0.5), shape: BoxShape.circle),
+                      // Primera columna: círculo centrado verticalmente
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: fg.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
                       ),
-                      const Spacer(),
-                      Text(boton.label, style: TextStyle(fontSize: compact ? 20 : 30, fontWeight: FontWeight.w600, color: fg)),
-                      const SizedBox(height: 6),
-                      Text(boton.sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, color: fg.withValues(alpha: 0.9))),
-                      if (boton.nota != null)
-                        Text(boton.nota!, style: TextStyle(fontSize: 14, color: fg)),
+                      const SizedBox(width: 16),
+                      // Segunda columna: textos
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              boton.label,
+                              style: TextStyle(
+                                fontSize: compact ? 30 : 40,
+                                fontWeight: FontWeight.w600,
+                                color: fg,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              boton.sub,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 20,
+                                color: fg.withValues(alpha: 0.9),
+                              ),
+                            ),
+                            if (boton.nota != null)
+                              Text(
+                                boton.nota!,
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  color: fg,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ],
-                  ),
+                  )
           ),
         ),
       ),

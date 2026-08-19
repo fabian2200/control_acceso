@@ -131,7 +131,9 @@ class AccesoService {
         tipo: slot['tipo'] as String,
         campo: slot['campo'] as String,
         label: slot['label'] as String,
-        sub: enabled ? (ventana == null ? hora : '$hora  ·  $ventana') : (motivo ?? hora),
+        sub: enabled
+            ? (ventana == null ? hora : '$hora  ·  $ventana')
+            : (motivo == 'Ya registrada' ? 'Ya registrada' : hora),
         nota: (!enabled && motivo != null && motivo != 'Ya registrada' && motivo != hora)
             ? motivo
             : null,
@@ -456,7 +458,6 @@ class AccesoService {
         tipo: 'salida_ocasional',
         label: 'Salida ocasional',
         sub: 'La jornada $jornada ya tiene salida',
-        nota: 'La jornada $jornada ya tiene salida',
         clase: 'action-occ',
         enabled: false,
       );
