@@ -103,7 +103,7 @@ class AccesoService {
           clase: 'action-out',
           enabled: true,
         ),
-        await _botonOcasional(),
+        await _botonOcasional(empleadoId, item, now),
       ];
     }
 
@@ -140,7 +140,7 @@ class AccesoService {
         enabled: enabled,
       ));
     }
-    botones.add(await _botonOcasional());
+    botones.add(await _botonOcasional(empleadoId, item, now));
     return botones;
   }
 
@@ -257,7 +257,7 @@ class AccesoService {
       );
       if (rows.isNotEmpty) permiso = rows.first;
     }
-    var motivo = motivoTexto ?? 'Otro';
+    var motivo = motivoTexto ?? 'Diligencia empresarial';
     if (permiso != null) {
       final m = (permiso['motivo'] as String?)?.trim();
       motivo = (m == null || m.isEmpty) ? 'Permiso' : m;
@@ -268,6 +268,9 @@ class AccesoService {
     final stamp = _stamp(now);
     final caso = await _clasificarOcasional(empleadoId, now, hora);
     final item = await _itemHorarioHoy(empleadoId, now);
+    if (await _ocasionalBloqueadaPorSalida(empleadoId, item, now)) {
+      throw StateError('La jornada ya tiene salida');
+    }
     final quedaAbierta = _quedaOcasionalAbierta(caso);
 
     DateTime? regresoEn;
@@ -303,6 +306,7 @@ class AccesoService {
     ];
     if ([3, 4, 5].contains(caso)) {
       final campoSalida = caso == 5 ? _campoUltimaSalida(item) : 'salida_jornada_1';
+      final horaRegistro = ([4, 5].contains(caso) ? regresoEn : null) ?? now;
       final insertada = await _insertarRegistroSlot(
         empleadoId,
         'salida',
@@ -310,6 +314,7 @@ class AccesoService {
         campoSalida,
         ocasionalId: ocasionalId,
         foto: foto,
+        registradoEn: horaRegistro,
       );
       if (insertada) acciones.add(_etiquetaAccion('salida', campoSalida));
     }
@@ -433,7 +438,22 @@ class AccesoService {
     );
   }
 
-  Future<BotonJornada> _botonOcasional() async {
+  Future<BotonJornada> _botonOcasional(
+    int empleadoId,
+    Map<String, Object?>? item,
+    DateTime now,
+  ) async {
+    if (await _ocasionalBloqueadaPorSalida(empleadoId, item, now)) {
+      final jornada = _jornadaEnCurso(item, now);
+      return BotonJornada(
+        tipo: 'salida_ocasional',
+        label: 'Salida ocasional',
+        sub: 'La jornada $jornada ya tiene salida',
+        nota: 'La jornada $jornada ya tiene salida',
+        clase: 'action-occ',
+        enabled: false,
+      );
+    }
     return const BotonJornada(
       tipo: 'salida_ocasional',
       label: 'Salida ocasional',
@@ -490,10 +510,15 @@ class AccesoService {
     if (centro != null) {
       final desde = centro.subtract(const Duration(hours: _horasAntes));
       if (now.isBefore(desde)) {
-        return {
-          'enabled': false,
-          'motivo': 'Puedes marcar desde las ${DateFormat('HH:mm').format(desde)}',
-        };
+        final salidaPorEntrada = slot['tipo'] == 'salida' &&
+            slot['jornada'] == _jornadaEnCurso(item, now) &&
+            await _tieneEntradaDeJornada(empleadoId, item, slot['jornada']!, now);
+        if (!salidaPorEntrada) {
+          return {
+            'enabled': false,
+            'motivo': 'Puedes marcar desde las ${DateFormat('HH:mm').format(desde)}',
+          };
+        }
       }
       if (slot['tipo'] == 'entrada') {
         final hasta = centro.add(const Duration(hours: _horasDespuesEntrada));
@@ -523,6 +548,49 @@ class AccesoService {
     if (slot['tipo'] != 'entrada' || jornadaActual == null) return false;
     if (slot['jornada'] != jornadaActual) return false;
     return graciaPermiso != null && !now.isAfter(graciaPermiso);
+  }
+
+  /// Jornada de trabajo en curso (1 hasta que inicia J2). No usa el hueco de entrada.
+  String _jornadaEnCurso(Map<String, Object?>? item, DateTime now) {
+    if (item == null || !_tieneJornada2(item)) return '1';
+    final entradaJ2 = _carbonHora(now, _hora(item, 'entrada_jornada_2'));
+    if (entradaJ2 != null && !now.isBefore(entradaJ2)) return '2';
+    return '1';
+  }
+
+  Future<bool> _tieneEntradaDeJornada(
+    int empleadoId,
+    Map<String, Object?> item,
+    String jornada,
+    DateTime now,
+  ) async {
+    final campo = jornada == '2' ? 'entrada_jornada_2' : 'entrada_jornada_1';
+    final hora = _hora(item, campo);
+    if (hora == null) return false;
+    return _yaRegistrado(empleadoId, 'entrada', hora, now);
+  }
+
+  Future<bool> _ocasionalBloqueadaPorSalida(
+    int empleadoId,
+    Map<String, Object?>? item,
+    DateTime now,
+  ) async {
+    if (item == null || _esDescanso(item)) return false;
+    final jornada = _jornadaEnCurso(item, now);
+    final campo = jornada == '2' ? 'salida_jornada_2' : 'salida_jornada_1';
+    return _tieneSalidaCampo(empleadoId, item, campo, now);
+  }
+
+  Future<bool> _tieneSalidaCampo(
+    int empleadoId,
+    Map<String, Object?> item,
+    String campo,
+    DateTime now,
+  ) async {
+    final hora = _hora(item, campo);
+    if (hora == null) return false;
+    if (await _yaRegistrado(empleadoId, 'salida', hora, now)) return true;
+    return _yaRegistrado(empleadoId, 'salida', hora, now.add(const Duration(days: 1)));
   }
 
   /// Entrada de la jornada en curso. En el hueco J1–J2 no hay entrada que reabrir.
@@ -643,11 +711,19 @@ class AccesoService {
     String campo, {
     int? ocasionalId,
     String? foto,
+    DateTime? registradoEn,
   }) async {
     final p = await _puntualidadSlot(empleadoId, tipo, now, campo);
     final esperada = p['hora_esperada'] != null ? _hhmm(p['hora_esperada']) : null;
     if (await _yaRegistrado(empleadoId, tipo, esperada, now)) return false;
-    await _crearRegistro(empleadoId, tipo, now, p, ocasionalId: ocasionalId, foto: foto);
+    await _crearRegistro(
+      empleadoId,
+      tipo,
+      registradoEn ?? now,
+      p,
+      ocasionalId: ocasionalId,
+      foto: foto,
+    );
     return true;
   }
 

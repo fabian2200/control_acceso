@@ -214,7 +214,7 @@ class KioskController extends ChangeNotifier {
       motivoTexto = '';
       _cargarPermisos();
     } else {
-      motivoTexto = 'Otro';
+      motivoTexto = 'Diligencia empresarial';
       screen = KioskScreen.hora;
       notifyListeners();
     }
@@ -991,7 +991,7 @@ class MotivoScreen extends StatelessWidget {
             children: [
               Expanded(child: _ReasonCard(title: 'Permiso', sub: 'Usa un permiso aprobado de hoy', onTap: () => controller.elegirOrigen('permiso'))),
               const SizedBox(width: 20),
-              Expanded(child: _ReasonCard(title: 'Otro', sub: 'Indica la hora de regreso esperada', onTap: () => controller.elegirOrigen('otro'))),
+              Expanded(child: _ReasonCard(title: 'Diligencia empresarial', sub: 'Indica la hora de regreso esperada', onTap: () => controller.elegirOrigen('otro'))),
             ],
           ),
           const SizedBox(height: 30),
@@ -1079,7 +1079,7 @@ class PermisosScreen extends StatelessWidget {
                 children: [
                   Text('No tienes permisos activos hoy', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600, color: KioskColors.ink)),
                   SizedBox(height: 10),
-                  Text('Si necesitas salir, vuelve y elige Otro para indicar la hora de regreso.', style: TextStyle(fontSize: 18, color: KioskColors.muted)),
+                  Text('Si necesitas salir, vuelve y elige Diligencia empresarial para indicar la hora de regreso.', style: TextStyle(fontSize: 18, color: KioskColors.muted)),
                 ],
               ),
             )
@@ -1165,7 +1165,7 @@ class _HoraScreenState extends State<HoraScreen> {
                 const Text('Hora de regreso esperada', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
                 const SizedBox(height: 10),
                 Text(
-                  'Motivo: ${widget.controller.motivoTexto ?? 'Otro'}. Indica a qué hora esperas volver.',
+                  'Motivo: ${widget.controller.motivoTexto ?? 'Diligencia empresarial'}. Indica a qué hora esperas volver.',
                   style: const TextStyle(fontSize: 20, color: KioskColors.muted),
                 ),
                 const SizedBox(height: 28),
