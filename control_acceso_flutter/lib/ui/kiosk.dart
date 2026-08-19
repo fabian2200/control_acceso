@@ -1,0 +1,1468 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../config.dart';
+import '../data/db.dart';
+import '../domain/acceso_service.dart';
+import '../domain/logs_service.dart';
+import '../domain/models.dart';
+import '../sync/sync_service.dart';
+import 'admin.dart';
+import 'camera_screen.dart';
+import 'theme.dart';
+import 'widgets.dart';
+
+enum KioskScreen {
+  cedula,
+  reconocer,
+  accion,
+  motivo,
+  permisos,
+  hora,
+  camara,
+  regreso,
+  preguntar,
+  confirmacion,
+  admin,
+  adminLog,
+}
+
+class KioskController extends ChangeNotifier {
+  KioskController({AccesoService? acceso, AccesoSync? sync, LogsService? logs})
+      : _acceso = acceso ?? AccesoService(),
+        _sync = sync ?? AccesoSync(),
+        _logs = logs ?? LogsService();
+
+  final AccesoService _acceso;
+  final AccesoSync _sync;
+  final LogsService _logs;
+
+  KioskScreen screen = KioskScreen.cedula;
+  SyncUi syncUi = const SyncUi();
+  Identificado? empleado;
+  OpenExit? openExit;
+  Confirmacion? confirm;
+  Confirmacion? cierre;
+  List<BotonJornada> botones = const [];
+  List<PermisoHoy> permisos = const [];
+  String? error;
+  String? homeNotice;
+  bool entradaDespuesCierre = false;
+  String? tipo;
+  String? campo;
+  String? origenOcasional;
+  int? permisoId;
+  String? motivoTexto;
+  String? horaRegreso;
+  String apiUrl = AppConfig.defaultApiUrl;
+  bool busy = false;
+  Timer? _syncTimer;
+  List<AdminEmpleado> empleadosAdmin = const [];
+  AdminEmpleado? empleadoAdmin;
+  List<LogItem> logsMes = const [];
+  bool logsDesdeNube = false;
+
+  Future<void> start() async {
+    apiUrl = await AccesoDb.instance.setting('api_url') ?? AppConfig.defaultApiUrl;
+    await tickSync();
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(const Duration(seconds: 60), (_) => tickSync());
+  }
+
+  Future<void> tickSync() async {
+    syncUi = SyncUi(online: syncUi.online, pendientes: syncUi.pendientes, syncing: true);
+    notifyListeners();
+    final result = await _sync.ejecutar();
+    syncUi = SyncUi(
+      online: result.online,
+      pendientes: result.pendientes,
+      error: result.error,
+    );
+    notifyListeners();
+  }
+
+  Future<void> saveApiUrl(String url) async {
+    apiUrl = url.replaceAll(RegExp(r'/$'), '');
+    await AccesoDb.instance.setSetting('api_url', apiUrl);
+    notifyListeners();
+    await tickSync();
+  }
+
+  void reset() {
+    screen = KioskScreen.cedula;
+    empleado = null;
+    openExit = null;
+    confirm = null;
+    cierre = null;
+    botones = const [];
+    permisos = const [];
+    error = null;
+    homeNotice = null;
+    entradaDespuesCierre = false;
+    tipo = null;
+    campo = null;
+    origenOcasional = null;
+    permisoId = null;
+    motivoTexto = null;
+    horaRegreso = null;
+    empleadoAdmin = null;
+    logsMes = const [];
+    busy = false;
+    notifyListeners();
+  }
+
+  Future<void> identificar(String cedula) async {
+    error = null;
+    homeNotice = null;
+    final digits = cedula.replaceAll(RegExp(r'\D'), '');
+    if (digits == AppConfig.adminPin) {
+      await abrirAdmin();
+      return;
+    }
+    busy = true;
+    notifyListeners();
+    final found = await _acceso.identificar(cedula);
+    busy = false;
+    if (found == null) {
+      error = 'Cédula no reconocida. Intenta de nuevo.';
+      notifyListeners();
+      return;
+    }
+    empleado = found;
+    openExit = await _acceso.salidaAbierta(found.id);
+    screen = KioskScreen.reconocer;
+    notifyListeners();
+  }
+
+  Future<void> sincronizarAhora() async {
+    homeNotice = null;
+    error = null;
+    notifyListeners();
+    await tickSync();
+    if (!syncUi.online) {
+      homeNotice = 'Sin conexión. Las marcas quedan en este kiosko.';
+    } else if (syncUi.error != null) {
+      homeNotice = 'No se pudo sincronizar.';
+    } else if (syncUi.pendientes > 0) {
+      homeNotice = 'En línea. Quedan ${syncUi.pendientes} marcas por enviar.';
+    } else {
+      homeNotice = 'Sincronizado con la NUBE.';
+    }
+    notifyListeners();
+  }
+
+  Future<void> continuarReconocer() async {
+    if (empleado == null) return reset();
+    if (openExit != null) {
+      screen = KioskScreen.regreso;
+      notifyListeners();
+      return;
+    }
+    await _cargarAccion();
+  }
+
+  Future<void> _cargarAccion() async {
+    if (empleado == null) return;
+    botones = await _acceso.botonesJornada(empleado!.id);
+    screen = KioskScreen.accion;
+    error = null;
+    notifyListeners();
+  }
+
+  Future<void> refreshBotones() async {
+    if (empleado == null || screen != KioskScreen.accion) return;
+    botones = await _acceso.botonesJornada(empleado!.id);
+    notifyListeners();
+  }
+
+  Future<void> volverAccion() => _cargarAccion();
+
+  void volverMotivo() {
+    screen = KioskScreen.motivo;
+    notifyListeners();
+  }
+
+  Future<void> elegir(BotonJornada boton) async {
+    if (!boton.enabled || empleado == null || busy) return;
+    if (openExit != null && boton.tipo != 'salida_ocasional' && !entradaDespuesCierre) {
+      screen = KioskScreen.regreso;
+      notifyListeners();
+      return;
+    }
+    if (!await _acceso.slotHabilitado(empleado!.id, boton.tipo, boton.campo)) {
+      error = 'Esa marca no está disponible en este momento.';
+      notifyListeners();
+      return;
+    }
+    if (boton.tipo == 'salida_ocasional') {
+      screen = KioskScreen.motivo;
+      notifyListeners();
+      return;
+    }
+    tipo = boton.tipo;
+    campo = boton.campo;
+    _irACamara();
+  }
+
+  void elegirOrigen(String origen) {
+    origenOcasional = origen;
+    permisoId = null;
+    horaRegreso = null;
+    if (origen == 'permiso') {
+      motivoTexto = '';
+      _cargarPermisos();
+    } else {
+      motivoTexto = 'Otro';
+      screen = KioskScreen.hora;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _cargarPermisos() async {
+    final userId = empleado?.userId;
+    permisos = userId == null ? const [] : await _acceso.permisosHoy(userId);
+    screen = KioskScreen.permisos;
+    notifyListeners();
+  }
+
+  Future<void> elegirPermiso(PermisoHoy permiso) async {
+    tipo = 'salida_ocasional';
+    permisoId = permiso.id;
+    motivoTexto = permiso.motivo;
+    horaRegreso = permiso.horaFinDigitos;
+    _irACamara();
+  }
+
+  Future<void> guardarHora(String digits) async {
+    tipo = 'salida_ocasional';
+    horaRegreso = digits;
+    _irACamara();
+  }
+
+  void confirmarRegreso() {
+    if (empleado == null) return reset();
+    tipo = 'regreso';
+    _irACamara();
+  }
+
+  void _irACamara() {
+    screen = KioskScreen.camara;
+    notifyListeners();
+  }
+
+  String get etiquetaFoto {
+    return switch (campo ?? tipo) {
+      'entrada_jornada_1' => 'Foto de entrada jornada 1',
+      'salida_jornada_1' => 'Foto de salida jornada 1',
+      'entrada_jornada_2' => 'Foto de entrada jornada 2',
+      'salida_jornada_2' => 'Foto de salida jornada 2',
+      'salida' => 'Foto de salida',
+      'salida_ocasional' => 'Foto de salida ocasional',
+      'regreso' => 'Foto de regreso',
+      _ => 'Foto de entrada',
+    };
+  }
+
+  void cancelarCamara() {
+    if (tipo == 'regreso') {
+      screen = KioskScreen.regreso;
+      notifyListeners();
+      return;
+    }
+    if (tipo == 'salida_ocasional') {
+      screen = KioskScreen.motivo;
+      notifyListeners();
+      return;
+    }
+    unawaited(_cargarAccion());
+  }
+
+  Future<void> guardarFotoYMarcar(String foto) async {
+    await _marcar(foto);
+  }
+
+  Future<void> decidirEntrada(bool si) async {
+    if (!si) {
+      reset();
+      return;
+    }
+    tipo = 'entrada';
+    campo = 'entrada_jornada_2';
+    _irACamara();
+  }
+
+  Future<void> _marcar(String? foto) async {
+    if (empleado == null || tipo == null) return;
+    busy = true;
+    notifyListeners();
+    try {
+      confirm = await _acceso.registrar(
+        empleadoId: empleado!.id,
+        userId: empleado!.userId,
+        tipo: tipo!,
+        campo: campo,
+        permisoId: permisoId,
+        motivoTexto: motivoTexto,
+        horaRegreso: horaRegreso,
+        foto: foto,
+      );
+    } catch (_) {
+      busy = false;
+      error = 'Esa marca no está disponible en este momento.';
+      await _cargarAccion();
+      return;
+    }
+    busy = false;
+    if (tipo == 'regreso') {
+      cierre = confirm;
+      openExit = null;
+      final preguntar = confirm?.preguntarEntradaJ2 == true;
+      entradaDespuesCierre = preguntar;
+      screen = preguntar ? KioskScreen.preguntar : KioskScreen.confirmacion;
+    } else {
+      screen = KioskScreen.confirmacion;
+    }
+    notifyListeners();
+    unawaited(tickSync());
+  }
+
+  void openSettings() {
+    unawaited(abrirAdmin());
+  }
+
+  Future<void> abrirAdmin() async {
+    screen = KioskScreen.admin;
+    notifyListeners();
+    await cargarEmpleadosAdmin();
+  }
+
+  Future<void> cargarEmpleadosAdmin() async {
+    empleadosAdmin = await AccesoDb.instance.empleadosAdmin();
+    notifyListeners();
+  }
+
+  Future<void> abrirLogEmpleado(AdminEmpleado empleadoSel) async {
+    empleadoAdmin = empleadoSel;
+    logsMes = const [];
+    logsDesdeNube = false;
+    screen = KioskScreen.adminLog;
+    busy = true;
+    notifyListeners();
+    final result = await _logs.mes(empleadoSel.id);
+    logsMes = result.items;
+    logsDesdeNube = result.desdeNube;
+    busy = false;
+    notifyListeners();
+  }
+
+  void volverAdmin() {
+    screen = KioskScreen.admin;
+    empleadoAdmin = null;
+    logsMes = const [];
+    notifyListeners();
+  }
+
+  void backToCedulaFromSettings() {
+    reset();
+  }
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
+  }
+}
+
+class KioskApp extends StatelessWidget {
+  const KioskApp({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Control de Acceso',
+      debugShowCheckedModeBanner: false,
+      theme: kioskTheme(),
+      home: KioskShell(controller: controller),
+    );
+  }
+}
+
+class KioskShell extends StatelessWidget {
+  const KioskShell({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        return Scaffold(
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.topCenter,
+                radius: 1.2,
+                colors: [Color(0xFF1B1F27), KioskColors.page],
+              ),
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: FittedBox(
+                  child: Container(
+                    width: 1348,
+                    height: 900,
+                    padding: const EdgeInsets.fromLTRB(32, 32, 32, 38),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [KioskColors.frameTop, KioskColors.frameBottom],
+                      ),
+                      borderRadius: BorderRadius.circular(36),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x8C000000), blurRadius: 90, offset: Offset(0, 40)),
+                      ],
+                    ),
+                    child: Container(
+                      width: 1280,
+                      height: 800,
+                      decoration: BoxDecoration(
+                        color: KioskColors.screen,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          if (controller.screen != KioskScreen.cedula) const KioskHeader(),
+                          if (controller.screen != KioskScreen.cedula)
+                            const Divider(height: 1, color: KioskColors.line),
+                          Expanded(child: _ScreenHost(controller: controller)),
+                          _StatusBar(controller: controller),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StatusBar extends StatelessWidget {
+  const _StatusBar({required this.controller});
+  final KioskController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final ui = controller.syncUi;
+    return Container(
+      height: 64,
+      color: KioskColors.bar,
+      padding: const EdgeInsets.symmetric(horizontal: 34),
+      child: Row(
+        children: [
+          GestureDetector(
+            onLongPress: controller.openSettings,
+            child: Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: ui.online ? KioskColors.green : KioskColors.muted,
+                    boxShadow: ui.online
+                        ? const [BoxShadow(color: Color(0x6616A34A), blurRadius: 8)]
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  ui.etiquetaRed,
+                  style: const TextStyle(color: Color(0xFFE2E8F0), fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          Icon(
+            ui.online ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+            size: 18,
+            color: ui.online ? KioskColors.green : KioskColors.muted,
+          ),
+          const SizedBox(width: 8),
+          Text(ui.etiquetaSync, style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 15, fontWeight: FontWeight.w500)),
+          Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 22), color: const Color(0x24FFFFFF)),
+          Text(
+            'Terminal ${AppConfig.terminalCodigo}  •  v2.4',
+            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14, letterSpacing: 0.3),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScreenHost extends StatelessWidget {
+  const _ScreenHost({required this.controller});
+  final KioskController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.white,
+      child: switch (controller.screen) {
+        KioskScreen.cedula => CedulaScreen(controller: controller),
+        KioskScreen.reconocer => ReconocerScreen(controller: controller),
+        KioskScreen.accion => AccionScreen(controller: controller),
+        KioskScreen.motivo => MotivoScreen(controller: controller),
+        KioskScreen.permisos => PermisosScreen(controller: controller),
+        KioskScreen.hora => HoraScreen(controller: controller),
+        KioskScreen.camara => CameraScreen(
+            etiqueta: controller.etiquetaFoto,
+            onCaptured: controller.guardarFotoYMarcar,
+            onCancel: controller.cancelarCamara,
+          ),
+        KioskScreen.regreso => RegresoScreen(controller: controller),
+        KioskScreen.preguntar => PreguntarScreen(controller: controller),
+        KioskScreen.confirmacion => ConfirmacionScreen(controller: controller),
+        KioskScreen.admin => AdminScreen(controller: controller),
+        KioskScreen.adminLog => AdminLogScreen(controller: controller),
+      },
+    );
+  }
+}
+
+class CedulaScreen extends StatefulWidget {
+  const CedulaScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  State<CedulaScreen> createState() => _CedulaScreenState();
+}
+
+class _CedulaScreenState extends State<CedulaScreen> {
+  String cedula = '';
+  Timer? _clock;
+  DateTime now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final empty = cedula.isEmpty;
+    return ColoredBox(
+      color: Colors.white,
+      child: Row(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(52, 32, 28, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Image.asset('assets/logo.png', height: 192, filterQuality: FilterQuality.high),
+                  ),
+                  const SizedBox(height: 48),
+                    const Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: 'INGEER ', style: TextStyle(color: KioskColors.ink)),
+                        TextSpan(text: 'BIOMETRIC', style: TextStyle(color: KioskColors.green)),
+                      ],
+                    ),
+                    style: TextStyle(fontSize: 36, fontWeight: FontWeight.w800, height: 1.1, letterSpacing: -0.6),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Sistema de identificación biométrica',
+                    style: TextStyle(fontSize: 28, color: KioskColors.muted),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: 56,
+                    height: 4,
+                    decoration: BoxDecoration(color: KioskColors.green, borderRadius: BorderRadius.circular(4)),
+                  ),
+                  const SizedBox(height: 22),
+                  const Divider(color: KioskColors.line, height: 1),
+                  const SizedBox(height: 22),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today_outlined, size: 46, color: KioskColors.green),
+                      const SizedBox(width: 10),
+                      Text(
+                        DateFormat("d 'de' MMMM 'de' yyyy", 'es').format(now),
+                        style: const TextStyle(fontSize: 46, color: KioskColors.muted, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(Icons.schedule, size: 56, color: KioskColors.green),
+                      const SizedBox(width: 10),
+                      Text(
+                        DateFormat('hh:mm:ss a').format(now).toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 56,
+                          fontWeight: FontWeight.w800,
+                          color: KioskColors.ink,
+                          letterSpacing: 0.4,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Spacer(),
+                  if (widget.controller.error != null) AlertErr(widget.controller.error!),
+                  if (widget.controller.homeNotice != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Text(widget.controller.homeNotice!, style: const TextStyle(fontSize: 17, color: KioskColors.muted)),
+                    ),
+                  SizedBox(
+                    height: 64,
+                    child: OutlinedButton.icon(
+                      onPressed: widget.controller.syncUi.syncing ? null : widget.controller.sincronizarAhora,
+                      icon: const Icon(Icons.sync, color: KioskColors.green),
+                      label: Text(
+                        widget.controller.syncUi.syncing ? 'Sincronizando…' : 'Sincronizar',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: KioskColors.green),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: KioskColors.green, width: 2),
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 22),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 28, 40, 28),
+            child: Container(
+              width: 480,
+              padding: const EdgeInsets.fromLTRB(28, 24, 28, 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x180F172A), blurRadius: 32, offset: Offset(0, 12)),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.badge_outlined, color: KioskColors.green, size: 22),
+                      SizedBox(width: 8),
+                      Text('Número de identificación', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    height: 56,
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: KioskColors.green, width: 1.5),
+                    ),
+                    child: Text(
+                      empty ? 'Ingresa tu número de identificación' : cedula,
+                      style: TextStyle(
+                        fontSize: empty ? 16 : 26,
+                        fontWeight: empty ? FontWeight.w400 : FontWeight.w600,
+                        color: empty ? KioskColors.faint : KioskColors.ink,
+                        letterSpacing: empty ? 0 : 1.2,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: KioskKeypad(
+                      compact: true,
+                      onDigit: (d) {
+                        if (cedula.length >= 12) return;
+                        setState(() => cedula += d);
+                      },
+                      onBack: () {
+                        if (cedula.isEmpty) return;
+                        setState(() => cedula = cedula.substring(0, cedula.length - 1));
+                      },
+                      onOk: () => widget.controller.identificar(cedula),
+                      okEnabled: cedula.length >= 5 && !widget.controller.busy,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ReconocerScreen extends StatefulWidget {
+  const ReconocerScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  State<ReconocerScreen> createState() => _ReconocerScreenState();
+}
+
+class _ReconocerScreenState extends State<ReconocerScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) widget.controller.continuarReconocer();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final emp = widget.controller.empleado!;
+    return Center(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          EmployeePhoto(src: emp.foto),
+          const SizedBox(width: 56),
+          SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF3),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text('CÉDULA VERIFICADA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF15803D), letterSpacing: 0.6)),
+                ),
+                const SizedBox(height: 20),
+                Text(emp.nombre, style: const TextStyle(fontSize: 52, fontWeight: FontWeight.w600, color: KioskColors.ink, height: 1.05, letterSpacing: -1)),
+                const SizedBox(height: 12),
+                Text('${emp.cargo} · C.C. ${emp.identificacion}', style: const TextStyle(fontSize: 22, color: KioskColors.muted)),
+                const SizedBox(height: 34),
+                const Row(
+                  children: [
+                    SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 14),
+                    Text('Cargando opciones…', style: TextStyle(fontSize: 16, color: KioskColors.faint)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AccionScreen extends StatefulWidget {
+  const AccionScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  State<AccionScreen> createState() => _AccionScreenState();
+}
+
+class _AccionScreenState extends State<AccionScreen> {
+  Timer? _clock;
+  DateTime now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+      final next = DateTime.now();
+      final cambioMinuto = next.minute != now.minute;
+      setState(() => now = next);
+      if (cambioMinuto) widget.controller.refreshBotones();
+    });
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.controller;
+    final slots = c.botones.where((b) => b.tipo != 'salida_ocasional').toList();
+    final conHorario = slots.any((b) => b.campo != null);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(48, 28, 48, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Eyebrow('Hola, ${c.empleado?.primero ?? ''}'),
+          const SizedBox(height: 8),
+          const Text('¿Qué vas a registrar?', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: KioskColors.ink)),
+          if (c.error != null) ...[const SizedBox(height: 14), AlertErr(c.error!)],
+          const Spacer(),
+          _ActionGrid(botones: c.botones, conHorario: conHorario, onTap: c.elegir),
+          const SizedBox(height: 18),
+          GhostButton(label: 'No soy ${c.empleado?.primero ?? ''}', onTap: c.reset),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionGrid extends StatelessWidget {
+  const _ActionGrid({required this.botones, required this.conHorario, required this.onTap});
+  final List<BotonJornada> botones;
+  final bool conHorario;
+  final void Function(BotonJornada) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final slots = botones.where((b) => b.tipo != 'salida_ocasional').toList();
+    final occ = botones.where((b) => b.tipo == 'salida_ocasional');
+    final filas = <List<BotonJornada>>[];
+    if (slots.length <= 2) {
+      filas.add(slots);
+    } else {
+      final mitad = (slots.length / 2).ceil();
+      filas.add(slots.take(mitad).toList());
+      filas.add(slots.skip(mitad).toList());
+    }
+    return Column(
+      children: [
+        for (var f = 0; f < filas.length; f++) ...[
+          if (f > 0) const SizedBox(height: 14),
+          Row(
+            children: [
+              for (var i = 0; i < filas[f].length; i++) ...[
+                if (i > 0) const SizedBox(width: 14),
+                Expanded(
+                  child: _ActionCard(
+                    boton: filas[f][i],
+                    compact: conHorario,
+                    onTap: () => onTap(filas[f][i]),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+        for (final b in occ) ...[
+          const SizedBox(height: 14),
+          _ActionCard(boton: b, compact: conHorario, wide: true, onTap: () => onTap(b)),
+        ],
+      ],
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({required this.boton, required this.onTap, this.compact = false, this.wide = false});
+  final BotonJornada boton;
+  final VoidCallback onTap;
+  final bool compact;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    final occ = boton.clase == 'action-occ';
+    final bg = switch (boton.clase) {
+      'action-in' => KioskColors.green,
+      'action-out' => KioskColors.blue,
+      _ => KioskColors.amberBg,
+    };
+    final fg = occ ? KioskColors.amberText : Colors.white;
+    return Opacity(
+      opacity: boton.enabled ? 1 : 0.4,
+      child: Material(
+        color: bg,
+        elevation: boton.enabled ? 4 : 0,
+        shadowColor: occ ? const Color(0x33D97706) : bg.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: boton.enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            height: wide ? 96 : (compact ? 148 : 200),
+            padding: const EdgeInsets.all(22),
+            decoration: occ
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: KioskColors.amberBorder, width: 2),
+                  )
+                : null,
+            child: wide
+                ? Row(
+                    children: [
+                      Container(width: 20, height: 20, decoration: const BoxDecoration(color: KioskColors.amber, shape: BoxShape.circle)),
+                      const SizedBox(width: 18),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(boton.label, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600, color: fg)),
+                          Text(boton.sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16, color: fg.withValues(alpha: 0.85))),
+                        ],
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(color: fg.withValues(alpha: 0.5), shape: BoxShape.circle),
+                      ),
+                      const Spacer(),
+                      Text(boton.label, style: TextStyle(fontSize: compact ? 20 : 30, fontWeight: FontWeight.w600, color: fg)),
+                      const SizedBox(height: 6),
+                      Text(boton.sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, color: fg.withValues(alpha: 0.9))),
+                      if (boton.nota != null)
+                        Text(boton.nota!, style: TextStyle(fontSize: 14, color: fg)),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MotivoScreen extends StatelessWidget {
+  const MotivoScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(60, 48, 60, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Eyebrow('Salida ocasional · paso 1 de 3', color: Color(0xFFB45309)),
+          const SizedBox(height: 14),
+          const Text('Motivo de la salida', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+          const SizedBox(height: 12),
+          const Text(
+            'Elige si sales con un permiso aprobado o registra otra salida e indica a qué hora regresas.',
+            style: TextStyle(fontSize: 20, color: KioskColors.muted),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Expanded(child: _ReasonCard(title: 'Permiso', sub: 'Usa un permiso aprobado de hoy', onTap: () => controller.elegirOrigen('permiso'))),
+              const SizedBox(width: 20),
+              Expanded(child: _ReasonCard(title: 'Otro', sub: 'Indica la hora de regreso esperada', onTap: () => controller.elegirOrigen('otro'))),
+            ],
+          ),
+          const SizedBox(height: 30),
+          GhostButton(label: 'Volver', onTap: controller.volverAccion),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReasonCard extends StatelessWidget {
+  const _ReasonCard({required this.title, required this.sub, required this.onTap});
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 140,
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: KioskColors.line),
+          ),
+          child: Row(
+            children: [
+              Container(width: 16, height: 16, decoration: const BoxDecoration(color: KioskColors.amber, shape: BoxShape.circle)),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w500, color: KioskColors.ink)),
+                    const SizedBox(height: 8),
+                    Text(sub, style: const TextStyle(fontSize: 16, color: KioskColors.muted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PermisosScreen extends StatelessWidget {
+  const PermisosScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(60, 48, 60, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Eyebrow('Salida ocasional · paso 2 de 3', color: Color(0xFFB45309)),
+          const SizedBox(height: 14),
+          const Text('Tus permisos de hoy', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+          const SizedBox(height: 10),
+          const Text(
+            'Selecciona el permiso con el que sales. El regreso esperado será la hora de fin del permiso.',
+            style: TextStyle(fontSize: 20, color: KioskColors.muted),
+          ),
+          const SizedBox(height: 28),
+          if (controller.permisos.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('No tienes permisos activos hoy', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                  SizedBox(height: 10),
+                  Text('Si necesitas salir, vuelve y elige Otro para indicar la hora de regreso.', style: TextStyle(fontSize: 18, color: KioskColors.muted)),
+                ],
+              ),
+            )
+          else
+            Expanded(
+              child: ListView.separated(
+                itemCount: controller.permisos.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 14),
+                itemBuilder: (_, i) {
+                  final p = controller.permisos[i];
+                  return Material(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      onTap: () => controller.elegirPermiso(p),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: KioskColors.line),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${p.horaInicio} – ${p.horaFin}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
+                            const SizedBox(height: 10),
+                            Text(p.motivo, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: KioskColors.ink)),
+                            const SizedBox(height: 12),
+                            Text(
+                              [if (p.rango.isNotEmpty) p.rango, 'Regreso esperado ${p.horaFin}'].join('   '),
+                              style: const TextStyle(fontSize: 15, color: KioskColors.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 24),
+          GhostButton(label: 'Volver', onTap: controller.volverMotivo),
+        ],
+      ),
+    );
+  }
+}
+
+class HoraScreen extends StatefulWidget {
+  const HoraScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  State<HoraScreen> createState() => _HoraScreenState();
+}
+
+class _HoraScreenState extends State<HoraScreen> {
+  String digits = '';
+
+  String get display {
+    final d = digits.padRight(4, '_');
+    return '${d.substring(0, 2)}:${d.substring(2, 4)}';
+  }
+
+  void addMins(int mins) {
+    final now = DateTime.now().add(Duration(minutes: mins));
+    setState(() => digits = DateFormat('HHmm').format(now));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(56, 44, 32, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Eyebrow('Salida ocasional · paso 2 de 3', color: Color(0xFFB45309)),
+                const SizedBox(height: 14),
+                const Text('Hora de regreso esperada', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                const SizedBox(height: 10),
+                Text(
+                  'Motivo: ${widget.controller.motivoTexto ?? 'Otro'}. Indica a qué hora esperas volver.',
+                  style: const TextStyle(fontSize: 20, color: KioskColors.muted),
+                ),
+                const SizedBox(height: 28),
+                Text(display, style: const TextStyle(fontSize: 96, fontWeight: FontWeight.w200, color: KioskColors.ink, letterSpacing: 1)),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    _Quick('+30 min', () => addMins(30)),
+                    const SizedBox(width: 14),
+                    _Quick('+1 h', () => addMins(60)),
+                    const SizedBox(width: 14),
+                    _Quick('+2 h', () => addMins(120)),
+                  ],
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    GhostButton(label: 'Volver', onTap: widget.controller.volverMotivo, tall: true),
+                    const SizedBox(width: 16),
+                    PrimaryButton(
+                      label: 'Registrar salida',
+                      onTap: digits.length == 4 ? () => widget.controller.guardarHora(digits) : null,
+                      enabled: digits.length == 4,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(
+          width: 520,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(0, 44, 56, 44),
+            child: KioskKeypad(
+              compact: true,
+              onDigit: (d) {
+                if (digits.length >= 4) return;
+                setState(() => digits += d);
+              },
+              onBack: () {
+                if (digits.isEmpty) return;
+                setState(() => digits = digits.substring(0, digits.length - 1));
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Quick extends StatelessWidget {
+  const _Quick(this.label, this.onTap);
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 68,
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF334155),
+          backgroundColor: const Color(0xFFF8FAFC),
+          side: const BorderSide(color: KioskColors.line),
+          padding: const EdgeInsets.symmetric(horizontal: 26),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: const TextStyle(fontSize: 19, fontWeight: FontWeight.w500),
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+}
+
+class RegresoScreen extends StatelessWidget {
+  const RegresoScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final emp = controller.empleado!;
+    final open = controller.openExit;
+    return Center(
+      child: SizedBox(
+        width: 900,
+        child: Row(
+          children: [
+            EmployeePhoto(src: emp.foto, small: true),
+            const SizedBox(width: 48),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: KioskColors.amberBg,
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text('SALIDA OCASIONAL ABIERTA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFB45309), letterSpacing: 0.6)),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('Tienes una salida ocasional abierta', style: TextStyle(fontSize: 40, fontWeight: FontWeight.w600, color: KioskColors.ink, height: 1.1)),
+                  const SizedBox(height: 16),
+                  Text.rich(
+                    TextSpan(
+                      style: const TextStyle(fontSize: 22, height: 1.6, color: Color(0xFF475569)),
+                      children: [
+                        TextSpan(text: open?.today == true ? 'Salida registrada hoy a las ' : 'Salida registrada el '),
+                        if (open?.today != true) TextSpan(text: '${open?.date ?? ''} a las ', style: const TextStyle(fontWeight: FontWeight.w700, color: KioskColors.ink)),
+                        TextSpan(text: open?.time ?? '', style: const TextStyle(fontWeight: FontWeight.w700, color: KioskColors.ink)),
+                        if (open?.reason != null) ...[
+                          const TextSpan(text: ' por '),
+                          TextSpan(text: open!.reason, style: const TextStyle(fontWeight: FontWeight.w700, color: KioskColors.ink)),
+                          const TextSpan(text: '.'),
+                        ],
+                        const TextSpan(text: ' Regreso esperado: '),
+                        TextSpan(text: open?.back ?? '', style: const TextStyle(fontWeight: FontWeight.w700, color: KioskColors.ink)),
+                        const TextSpan(text: '.'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Al confirmar se cierra esta salida ocasional.',
+                    style: TextStyle(fontSize: 22, height: 1.6, color: Color(0xFF475569)),
+                  ),
+                  const SizedBox(height: 34),
+                  Row(
+                    children: [
+                      PrimaryButton(label: 'Cerrar salida', green: true, onTap: controller.confirmarRegreso),
+                      const SizedBox(width: 16),
+                      GhostButton(label: 'Cancelar', onTap: controller.reset, tall: true),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PreguntarScreen extends StatelessWidget {
+  const PreguntarScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final emp = controller.empleado!;
+    final cierre = controller.cierre;
+    return Center(
+      child: SizedBox(
+        width: 900,
+        child: Row(
+          children: [
+            EmployeePhoto(src: emp.foto, small: true),
+            const SizedBox(width: 48),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF3),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text('SALIDA CERRADA', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF15803D), letterSpacing: 0.6)),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('¿Deseas registrar entrada de jornada 2?', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'La salida ocasional quedó cerrada${cierre?.time != null ? ' a las ${cierre!.time}' : ''}. Si marcas entrada, se usará la hora actual.',
+                    style: const TextStyle(fontSize: 22, height: 1.6, color: Color(0xFF475569)),
+                  ),
+                  const SizedBox(height: 34),
+                  Row(
+                    children: [
+                      PrimaryButton(label: 'Sí, registrar', green: true, onTap: () => controller.decidirEntrada(true)),
+                      const SizedBox(width: 16),
+                      GhostButton(label: 'No, terminar', onTap: () => controller.decidirEntrada(false), tall: true),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ConfirmacionScreen extends StatefulWidget {
+  const ConfirmacionScreen({super.key, required this.controller});
+  final KioskController controller;
+
+  @override
+  State<ConfirmacionScreen> createState() => _ConfirmacionScreenState();
+}
+
+class _ConfirmacionScreenState extends State<ConfirmacionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(seconds: 4), () {
+      if (mounted) widget.controller.reset();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.controller.confirm!;
+    final emp = widget.controller.empleado!;
+    return Center(
+      child: SizedBox(
+        width: 960,
+        child: Row(
+          children: [
+            Icon(Icons.check_circle_outline, size: 160, color: c.color),
+            const SizedBox(width: 48),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Eyebrow('${emp.nombre} · ${DateFormat("EEEE d 'de' MMMM", 'es').format(DateTime.now())}'),
+                  const SizedBox(height: 16),
+                  Text(c.title, style: const TextStyle(fontSize: 46, fontWeight: FontWeight.w600, color: KioskColors.ink, height: 1.1)),
+                  const SizedBox(height: 18),
+                  Text(c.time, style: const TextStyle(fontSize: 96, fontWeight: FontWeight.w200, color: KioskColors.ink)),
+                  const SizedBox(height: 20),
+                  if (c.acciones.isNotEmpty) ...[
+                    const Text(
+                      'Se registró',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                    ),
+                    const SizedBox(height: 10),
+                    ...c.acciones.map(
+                      (accion) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          '· $accion',
+                          style: const TextStyle(fontSize: 24, height: 1.3, color: KioskColors.ink),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      _Pill(c.pillText, c.pillBg, c.pillFg),
+                      if (c.meta != null) _Pill(c.meta!, const Color(0xFFF1F5F9), const Color(0xFF475569)),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Registro guardado en esta tablet. Se enviará a la NUBE cuando haya conexión.',
+                    style: TextStyle(fontSize: 18, color: KioskColors.faint),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill(this.text, this.bg, this.fg);
+  final String text;
+  final Color bg;
+  final Color fg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      child: Text(text, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: fg)),
+    );
+  }
+}

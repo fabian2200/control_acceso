@@ -7,7 +7,6 @@ use App\Models\AccesoEmpleadoHorario;
 use App\Models\AccesoHorario;
 use App\Models\AccesoHorarioItem;
 use App\Models\AccesoTerminal;
-use App\Models\Permiso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,9 +40,12 @@ class SyncCatalogoController extends Controller
             'ok' => true,
             'server_time' => now()->toIso8601String(),
             'cargos' => $this->snapshotTabla('cargos'),
+            'departamentos' => $this->snapshotTabla('departamentos'),
+            'empresas' => $this->snapshotTabla('empresas'),
             'empleados' => $this->snapshotTabla('empleados'),
             'users' => $this->snapshotTabla('users', ['remember_token']),
-            'permisos' => Permiso::query()->orderBy('id')->get(),
+            'permisos' => $this->snapshotTabla('permisos'),
+            'admin_acceso' => $this->snapshotTabla('admin_acceso'),
             'acceso_terminales' => AccesoTerminal::query()
                 ->orderBy('id')
                 ->get(['id', 'codigo', 'nombre', 'ubicacion', 'activo', 'created_at', 'updated_at']),

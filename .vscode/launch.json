@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense para saber los atributos posibles.
+    // Mantenga el puntero para ver las descripciones de los existentes atributos.
+    // Para más información, visite: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "control_acceso_flutter",
+            "cwd": "control_acceso_flutter",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "control_acceso_flutter (profile mode)",
+            "cwd": "control_acceso_flutter",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "control_acceso_flutter (release mode)",
+            "cwd": "control_acceso_flutter",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}
