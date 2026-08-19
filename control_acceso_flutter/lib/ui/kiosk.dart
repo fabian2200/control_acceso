@@ -96,6 +96,12 @@ class KioskController extends ChangeNotifier {
     await tickSync();
   }
 
+  void limpiarError() {
+    if (error == null) return;
+    error = null;
+    notifyListeners();
+  }
+
   void reset() {
     screen = KioskScreen.cedula;
     empleado = null;
@@ -134,7 +140,7 @@ class KioskController extends ChangeNotifier {
     final found = await _acceso.identificar(cedula);
     busy = false;
     if (found == null) {
-      error = 'Cédula no reconocida. Intenta de nuevo.';
+      error = 'Número de identificación no reconocido. Intenta de nuevo.';
       notifyListeners();
       return;
     }
@@ -766,6 +772,7 @@ class _CedulaScreenState extends State<CedulaScreen> {
                   Expanded(
                     child: KioskKeypad(
                       compact: true,
+                      onAnyKey: widget.controller.limpiarError,
                       onDigit: (d) {
                         if (cedula.length >= 12) return;
                         setState(() => cedula += d);
@@ -774,6 +781,7 @@ class _CedulaScreenState extends State<CedulaScreen> {
                         if (cedula.isEmpty) return;
                         setState(() => cedula = cedula.substring(0, cedula.length - 1));
                       },
+                      onClear: () => setState(() => cedula = ''),
                       onOk: () => widget.controller.identificar(cedula),
                       okEnabled: cedula.length >= 5 && !widget.controller.busy,
                     ),
@@ -889,14 +897,44 @@ class _AccionScreenState extends State<AccionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Eyebrow('Hola, ${c.empleado?.primero ?? ''}'),
-          const SizedBox(height: 8),
-          const Text('¿Qué vas a registrar?', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: KioskColors.ink)),
+          Eyebrow('Hola, ${c.empleado?.primero ?? ''}', fontSize: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('¿Qué vas a registrar?', style: TextStyle(fontSize: 54, fontWeight: FontWeight.w700, color: KioskColors.ink)),
+                ElevatedButton.icon(
+                  onPressed: c.reset,
+                  icon: const Icon(
+                    Icons.logout_outlined,
+                    size: 32,
+                    color: Color.fromARGB(255, 214, 20, 20),
+                  ),
+                  label: const Text(
+                    'Cancelar y salir',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: Color.fromARGB(255, 204, 29, 29),
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 255, 230, 230),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           if (c.error != null) ...[const SizedBox(height: 14), AlertErr(c.error!)],
           const Spacer(),
           _ActionGrid(botones: c.botones, conHorario: conHorario, onTap: c.elegir),
-          const SizedBox(height: 18),
-          GhostButton(label: 'No soy ${c.empleado?.primero ?? ''}', onTap: c.reset),
+          const Spacer(),
         ],
       ),
     );
@@ -941,7 +979,7 @@ class _ActionGrid extends StatelessWidget {
           ),
         ],
         for (final b in occ) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 24),
           _ActionCard(boton: b, compact: conHorario, wide: true, onTap: () => onTap(b)),
         ],
       ],
@@ -976,7 +1014,7 @@ class _ActionCard extends StatelessWidget {
           onTap: boton.enabled ? onTap : null,
           borderRadius: BorderRadius.circular(18),
           child: Container(
-            height: wide ? 96 : (compact ? 148 : 200),
+            height: wide ? 116 : (compact ? 148 : 200),
             padding: const EdgeInsets.all(22),
             decoration: occ
                 ? BoxDecoration(
@@ -1071,13 +1109,40 @@ class MotivoScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Eyebrow('Salida ocasional · paso 1', color: Color(0xFFB45309)),
-          const SizedBox(height: 14),
-          const Text('Motivo de la salida', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
-          const SizedBox(height: 12),
-          const Text(
-            'Elige si sales con un permiso aprobado o registra otra salida e indica a qué hora regresas.',
-            style: TextStyle(fontSize: 20, color: KioskColors.muted),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Eyebrow('Salida ocasional · paso 1', color: Color(0xFFB45309), fontSize: 18),
+                  const SizedBox(height: 14),
+                  const Text('Motivo de la salida', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Elige si sales con un permiso aprobado o registra otra salida e indica a qué hora regresas.',
+                    style: TextStyle(fontSize: 24, color: KioskColors.muted),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: controller.volverAccion,
+                icon: const Icon(Icons.arrow_back_outlined, size: 32, color: KioskColors.red),
+                label: const Text('Volver', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: KioskColors.red)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 255, 231, 231),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: const BorderSide(color: KioskColors.red, width: 1),
+                ),
+              ),
+            ],
           ),
           const Spacer(),
           Row(
@@ -1088,7 +1153,7 @@ class MotivoScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 30),
-          GhostButton(label: 'Volver', onTap: controller.volverAccion),
+          const Spacer(),
         ],
       ),
     );
@@ -1113,32 +1178,59 @@ class MandadoScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Eyebrow('Salida ocasional · paso 2 de 4', color: Color(0xFFB45309)),
-          const SizedBox(height: 14),
-          const Text('¿Quién lo autorizó?', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
-          const SizedBox(height: 12),
-          const Text(
-            'Indica quién autorizó esta diligencia empresarial.',
-            style: TextStyle(fontSize: 20, color: KioskColors.muted),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Eyebrow('Salida ocasional · paso 2 de 4', color: Color(0xFFB45309), fontSize: 18),
+                  const SizedBox(height: 14),
+                  const Text('¿Quién lo autorizó?', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Indica quién autorizó esta diligencia empresarial.',
+                    style: TextStyle(fontSize: 24, color: KioskColors.muted),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: controller.volverMotivo,
+                icon: const Icon(Icons.arrow_back_outlined, size: 32, color: KioskColors.red),
+                label: const Text('Volver', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: KioskColors.red)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 255, 231, 231),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: const BorderSide(color: KioskColors.red, width: 1),
+                ),
+              ),
+            ],
           ),
           const Spacer(),
           Row(
             children: [
-              Expanded(child: _ReasonCard(title: opciones[0].$1, sub: opciones[0].$2, height: 118, titleSize: 24, onTap: () => controller.elegirMandadoPor(opciones[0].$1))),
+              Expanded(child: _ReasonCard(title: opciones[0].$1, sub: opciones[0].$2, height: 160, titleSize: 27, onTap: () => controller.elegirMandadoPor(opciones[0].$1))),
               const SizedBox(width: 20),
-              Expanded(child: _ReasonCard(title: opciones[1].$1, sub: opciones[1].$2, height: 118, titleSize: 24, onTap: () => controller.elegirMandadoPor(opciones[1].$1))),
+              Expanded(child: _ReasonCard(title: opciones[1].$1, sub: opciones[1].$2, height: 160, titleSize: 27, onTap: () => controller.elegirMandadoPor(opciones[1].$1))),
             ],
           ),
           const SizedBox(height: 20),
           Row(
             children: [
-              Expanded(child: _ReasonCard(title: opciones[2].$1, sub: opciones[2].$2, height: 118, titleSize: 24, onTap: () => controller.elegirMandadoPor(opciones[2].$1))),
+              Expanded(child: _ReasonCard(title: opciones[2].$1, sub: opciones[2].$2, height: 160, titleSize: 27, onTap: () => controller.elegirMandadoPor(opciones[2].$1))),
               const SizedBox(width: 20),
-              Expanded(child: _ReasonCard(title: opciones[3].$1, sub: opciones[3].$2, height: 118, titleSize: 24, onTap: () => controller.elegirMandadoPor(opciones[3].$1))),
+              Expanded(child: _ReasonCard(title: opciones[3].$1, sub: opciones[3].$2, height: 160, titleSize: 27, onTap: () => controller.elegirMandadoPor(opciones[3].$1))),
             ],
           ),
           const SizedBox(height: 30),
-          GhostButton(label: 'Volver', onTap: controller.volverMotivo),
+          const Spacer(),
         ],
       ),
     );
@@ -1171,13 +1263,40 @@ class _MandadoEmpleadoScreenState extends State<MandadoEmpleadoScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Eyebrow('Salida ocasional · paso 2 de 4', color: Color(0xFFB45309)),
-          const SizedBox(height: 14),
-          const Text('¿Quién lo autorizó?', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
-          const SizedBox(height: 10),
-          const Text(
-            'Selecciona al empleado que autorizó esta diligencia.',
-            style: TextStyle(fontSize: 20, color: KioskColors.muted),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Eyebrow('Salida ocasional · paso 2 de 4', color: Color(0xFFB45309), fontSize: 18),
+                  const SizedBox(height: 14),
+                  const Text('¿Quién lo autorizó?', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Selecciona al empleado que autorizó esta diligencia.',
+                    style: TextStyle(fontSize: 24, color: KioskColors.muted),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: widget.controller.volverMandado,
+                icon: const Icon(Icons.arrow_back_outlined, size: 32, color: KioskColors.red),
+                label: const Text('Volver', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: KioskColors.red)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 255, 231, 231),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: const BorderSide(color: KioskColors.red, width: 1),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 22),
           TextField(
@@ -1243,8 +1362,6 @@ class _MandadoEmpleadoScreenState extends State<MandadoEmpleadoScreen> {
                     },
                   ),
           ),
-          const SizedBox(height: 20),
-          GhostButton(label: 'Volver', onTap: widget.controller.volverMandado),
         ],
       ),
     );
@@ -1256,8 +1373,8 @@ class _ReasonCard extends StatelessWidget {
     required this.title,
     required this.sub,
     required this.onTap,
-    this.height = 140,
-    this.titleSize = 30,
+    this.height = 170,
+    this.titleSize = 36,
   });
   final String title;
   final String sub;
@@ -1295,7 +1412,7 @@ class _ReasonCard extends StatelessWidget {
                       style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.w500, color: KioskColors.ink),
                     ),
                     const SizedBox(height: 8),
-                    Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, color: KioskColors.muted)),
+                    Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 23, color: KioskColors.muted)),
                   ],
                 ),
               ),
@@ -1318,15 +1435,42 @@ class PermisosScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Eyebrow('Salida ocasional · paso 2 de 3', color: Color(0xFFB45309)),
-          const SizedBox(height: 14),
-          const Text('Tus permisos de hoy', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
-          const SizedBox(height: 10),
-          const Text(
-            'Selecciona el permiso con el que sales. El regreso esperado será la hora de fin del permiso.',
-            style: TextStyle(fontSize: 20, color: KioskColors.muted),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   const Eyebrow('Salida ocasional · paso 2 de 3', color: Color(0xFFB45309), fontSize: 18),
+                    const SizedBox(height: 14),
+                    const Text('Tus permisos de hoy', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Selecciona el permiso con el que sales. El regreso esperado será la hora de fin del permiso.',
+                      style: TextStyle(fontSize: 24, color: KioskColors.muted),
+                    ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: controller.volverMotivo,
+                icon: const Icon(Icons.arrow_back_outlined, size: 32, color: KioskColors.red),
+                label: const Text('Volver', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: KioskColors.red)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 255, 231, 231),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: const BorderSide(color: KioskColors.red, width: 1),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 28),
+          const Spacer(),
           if (controller.permisos.isEmpty)
             Container(
               width: double.infinity,
@@ -1367,13 +1511,19 @@ class PermisosScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('${HoraFmt.from(p.horaInicio)} – ${HoraFmt.from(p.horaFin)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
-                            const SizedBox(height: 10),
-                            Text(p.motivo, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: KioskColors.ink)),
-                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(Icons.schedule, size: 42, color: Color(0xFFB45309)),
+                                const SizedBox(width: 10),
+                                Text('${HoraFmt.from(p.horaInicio)} – ${HoraFmt.from(p.horaFin)}', style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            Text(p.motivo, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w500, color: KioskColors.ink)),
+                            const SizedBox(height: 5),
                             Text(
                               [if (p.rango.isNotEmpty) p.rango, 'Regreso esperado ${HoraFmt.from(p.horaFin)}'].join('   '),
-                              style: const TextStyle(fontSize: 15, color: KioskColors.muted),
+                              style: const TextStyle(fontSize: 27, color: KioskColors.muted),
                             ),
                           ],
                         ),
@@ -1383,8 +1533,7 @@ class PermisosScreen extends StatelessWidget {
                 },
               ),
             ),
-          const SizedBox(height: 24),
-          GhostButton(label: 'Volver', onTap: controller.volverMotivo),
+          const Spacer(),
         ],
       ),
     );
@@ -1427,7 +1576,7 @@ class _HoraScreenState extends State<HoraScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Eyebrow('Salida ocasional · paso 3 de 4', color: Color(0xFFB45309)),
+          const Eyebrow('Salida ocasional · paso 3 de 4', color: Color(0xFFB45309), fontSize: 18),
           const SizedBox(height: 14),
           const Text('Hora de regreso esperada', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, color: KioskColors.ink)),
           const SizedBox(height: 10),
@@ -1437,7 +1586,7 @@ class _HoraScreenState extends State<HoraScreen> {
               if ((widget.controller.mandadoPor ?? '').isNotEmpty) 'Autorizado por: ${widget.controller.mandadoPor}',
               'Elige a qué hora esperas volver.',
             ].join('. '),
-            style: const TextStyle(fontSize: 20, color: KioskColors.muted),
+            style: const TextStyle(fontSize: 24, color: KioskColors.muted),
           ),
           const SizedBox(height: 22),
           Container(
@@ -1506,7 +1655,23 @@ class _HoraScreenState extends State<HoraScreen> {
           const SizedBox(height: 18),
           Row(
             children: [
-              GhostButton(label: 'Volver', onTap: widget.controller.volverHora, tall: true),
+              ElevatedButton.icon(
+                onPressed: widget.controller.volverHora,
+                icon: const Icon(Icons.arrow_back_outlined, size: 32, color: KioskColors.red),
+                label: const Text('Volver', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: KioskColors.red)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 255, 231, 231),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 30,
+                    vertical: 23,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: const BorderSide(color: KioskColors.red, width: 1),
+                ),
+              ),
               const SizedBox(width: 16),
               PrimaryButton(
                 label: 'Registrar salida',

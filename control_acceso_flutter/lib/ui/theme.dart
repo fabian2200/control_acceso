@@ -18,6 +18,8 @@ class KioskColors {
   static const amberBg = Color(0xFFFFFBEB);
   static const amberBorder = Color(0xFFFCD34D);
   static const red = Color(0xFFDC2626);
+  static const amarillo = Color(0xFFeca200);
+  static const azul = Color(0xFF018EB2);
 }
 
 ThemeData kioskTheme() {

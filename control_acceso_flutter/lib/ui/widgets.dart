@@ -72,6 +72,8 @@ class KioskKeypad extends StatelessWidget {
     super.key,
     required this.onDigit,
     required this.onBack,
+    this.onClear,
+    this.onAnyKey,
     this.onOk,
     this.compact = false,
     this.okEnabled = true,
@@ -80,6 +82,8 @@ class KioskKeypad extends StatelessWidget {
 
   final void Function(String digit) onDigit;
   final VoidCallback onBack;
+  final VoidCallback? onClear;
+  final VoidCallback? onAnyKey;
   final VoidCallback? onOk;
   final bool compact;
   final bool okEnabled;
@@ -89,6 +93,11 @@ class KioskKeypad extends StatelessWidget {
   Widget build(BuildContext context) {
     final h = compact ? 112.0 : 115.0;
     final gap = compact ? 10.0 : 12.0;
+
+    void tap(VoidCallback action) {
+      onAnyKey?.call();
+      action();
+    }
 
     Widget key({
       required Widget child,
@@ -120,7 +129,7 @@ class KioskKeypad extends StatelessWidget {
 
     Widget digit(String label) {
       return key(
-        onTap: () => onDigit(label),
+        onTap: () => tap(() => onDigit(label)),
         child: Text(
           label,
           style: const TextStyle(fontSize: 47, fontWeight: FontWeight.w500, color: KioskColors.ink),
@@ -149,27 +158,42 @@ class KioskKeypad extends StatelessWidget {
         SizedBox(height: gap),
         row([
           key(
-            onTap: onBack,
-            color: KioskColors.green,
+            onTap: () => tap(onBack),
+            color: KioskColors.amarillo,
             elevated: false,
             child: const Icon(Icons.backspace_outlined, color: Colors.white, size: 28),
           ),
           digit('0'),
-          const SizedBox.shrink(),
+          key(
+            onTap: () => tap(() => onClear?.call()),
+            color: KioskColors.azul,
+            elevated: false,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cleaning_services_outlined, color: Colors.white, size: 28),
+                SizedBox(width: 8),
+                Text(
+                  'Limpiar',
+                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
         ]),
         if (onOk != null) ...[
           SizedBox(height: gap + 4),
           SizedBox(
-            height: 72,
+            height: 82,
             width: double.infinity,
             child: FilledButton(
-              onPressed: okEnabled ? onOk : null,
+              onPressed: okEnabled ? () => tap(onOk!) : null,
               style: FilledButton.styleFrom(
                 backgroundColor: KioskColors.green,
                 disabledBackgroundColor: const Color(0xFF86EFAC),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                textStyle: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                textStyle: const TextStyle(fontSize: 27, fontWeight: FontWeight.w700),
               ),
               child: Text(okLabel),
             ),
@@ -277,9 +301,10 @@ class EmployeePhoto extends StatelessWidget {
 }
 
 class Eyebrow extends StatelessWidget {
-  const Eyebrow(this.text, {super.key, this.color = KioskColors.faint});
+  const Eyebrow(this.text, {super.key, this.color = KioskColors.faint, this.fontSize = 12});
   final String text;
   final Color color;
+  final double? fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +312,7 @@ class Eyebrow extends StatelessWidget {
       text.toUpperCase(),
       style: TextStyle(
         fontFamily: 'monospace',
-        fontSize: 12,
+        fontSize: fontSize ?? 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.8,
         color: color,
