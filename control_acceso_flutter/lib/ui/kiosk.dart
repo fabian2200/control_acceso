@@ -739,36 +739,92 @@ class _CedulaScreenState extends State<CedulaScreen> {
               ),
               child: Column(
                 children: [
+                  const SizedBox(height: 22),
                   const Row(
                     children: [
-                      Icon(Icons.badge_outlined, color: KioskColors.green, size: 32),
+                      Icon(Icons.badge_outlined, color: KioskColors.green, size: 42),
                       SizedBox(width: 8),
-                      Text('Número de identificación', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+                      Text('Número de identificación', style: TextStyle(fontSize: 35, fontWeight: FontWeight.w600, color: KioskColors.ink)),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    height: 86,
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: KioskColors.green, width: 1.5),
-                    ),
-                    child: Text(
-                      empty ? 'Ingresa tu número de identificación' : cedula,
-                      style: TextStyle(
-                        fontSize: empty ? 26 : 36,
-                        fontWeight: empty ? FontWeight.w400 : FontWeight.w600,
-                        color: empty ? KioskColors.faint : KioskColors.ink,
-                        letterSpacing: empty ? 0 : 1.2,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 86,
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: KioskColors.green,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Text(
+                            empty
+                                ? 'Ingresa tu número de identificación'
+                                : cedula,
+                            style: TextStyle(
+                              fontSize: empty ? 26 : 36,
+                              fontWeight: empty
+                                  ? FontWeight.w400
+                                  : FontWeight.w600,
+                              color: empty
+                                  ? KioskColors.faint
+                                  : KioskColors.ink,
+                              letterSpacing: empty ? 0 : 1.2,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        height: 86,
+                        width: 106,
+                        child: Material(
+                          color: KioskColors.amarillo.withValues(alpha: 0.2),
+                          elevation: 0,
+                          shadowColor: const Color(0x220F172A),
+                          borderRadius: BorderRadius.circular(12),
+                          child: InkWell(
+                            onTap: () {
+                              if (cedula.isEmpty) return;
+
+                              setState(() {
+                                cedula = cedula.substring(
+                                  0,
+                                  cedula.length - 1,
+                                );
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: KioskColors.amarillo,
+                                ),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.backspace_outlined,
+                                  color: KioskColors.amarillo,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 56),
                   Expanded(
                     child: KioskKeypad(
                       compact: true,
@@ -897,7 +953,7 @@ class _AccionScreenState extends State<AccionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Eyebrow('Hola, ${c.empleado?.primero ?? ''}', fontSize: 24),
+          Eyebrow('Hola, ${c.empleado?.nombre  ?? ''}', fontSize: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1014,7 +1070,7 @@ class _ActionCard extends StatelessWidget {
           onTap: boton.enabled ? onTap : null,
           borderRadius: BorderRadius.circular(18),
           child: Container(
-            height: wide ? 116 : (compact ? 148 : 200),
+            height: wide ? 116 : (compact ? 188 : 200),
             padding: const EdgeInsets.all(22),
             decoration: occ
                 ? BoxDecoration(
@@ -1063,7 +1119,7 @@ class _ActionCard extends StatelessWidget {
                             Text(
                               boton.label,
                               style: TextStyle(
-                                fontSize: compact ? 30 : 40,
+                                fontSize: compact ? 40 : 40,
                                 fontWeight: FontWeight.w600,
                                 color: fg,
                               ),
@@ -1074,7 +1130,7 @@ class _ActionCard extends StatelessWidget {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: 25,
                                 color: fg.withValues(alpha: 0.9),
                               ),
                             ),
@@ -1082,7 +1138,7 @@ class _ActionCard extends StatelessWidget {
                               Text(
                                 boton.nota!,
                                 style: TextStyle(
-                                  fontSize: 17,
+                                  fontSize: 20,
                                   color: fg,
                                 ),
                               ),

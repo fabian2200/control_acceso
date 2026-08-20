@@ -128,13 +128,13 @@ class AccesoService {
       final horaAm = HoraFmt.from(hora);
       final ventana = porPermiso && graciaPermiso != null
           ? 'Permiso hasta ${HoraFmt.of(graciaPermiso)}'
-          : _textoVentana(slot, hora, now);
+          : (slot['tipo'] == 'salida' && enabled ? null : _textoVentana(slot, hora, now));
       botones.add(BotonJornada(
         tipo: slot['tipo'] as String,
         campo: slot['campo'] as String,
         label: slot['label'] as String,
         sub: enabled
-            ? (ventana == null ? horaAm : '$horaAm  ·  $ventana')
+            ? (ventana == null ? horaAm : 'Hora de entrada $horaAm \nPuedes marcar desde $ventana')
             : (motivo == 'Ya registrada' ? 'Ya registrada' : horaAm),
         nota: (!enabled && motivo != null && motivo != 'Ya registrada' && motivo != hora)
             ? motivo
@@ -562,11 +562,11 @@ class AccesoService {
       if (_entradaHabilitadaPorPermiso(now, graciaPermiso)) {
         return {'enabled': true, 'motivo': null, 'porPermiso': true};
       }
-      return {'enabled': false, 'motivo': 'Fuera de horario'};
+      return {'enabled': false, 'motivo': 'Marcación no registrada'};
     }
 
     if (slot['jornada'] == '1' && _jornada2Comenzo(item, now)) {
-      return {'enabled': false, 'motivo': 'Fuera de horario'};
+      return {'enabled': false, 'motivo': 'Marcación no registrada'};
     }
     final desde = centro.subtract(const Duration(hours: _horasAntes));
     final tieneEntrada = await _tieneEntradaDeJornada(empleadoId, item, slot['jornada']!, now);

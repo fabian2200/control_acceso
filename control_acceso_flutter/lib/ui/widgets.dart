@@ -104,6 +104,7 @@ class KioskKeypad extends StatelessWidget {
       VoidCallback? onTap,
       Color? color,
       bool elevated = true,
+      Color? borderColor,
     }) {
       return SizedBox(
         height: h,
@@ -118,7 +119,7 @@ class KioskKeypad extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color == null ? KioskColors.line : Colors.transparent),
+                border: Border.all(color: borderColor ?? (color == null ? KioskColors.line : Colors.transparent)),
               ),
               child: Center(child: child),
             ),
@@ -158,47 +159,41 @@ class KioskKeypad extends StatelessWidget {
         SizedBox(height: gap),
         row([
           key(
-            onTap: () => tap(onBack),
-            color: KioskColors.amarillo,
-            elevated: false,
-            child: const Icon(Icons.backspace_outlined, color: Colors.white, size: 28),
-          ),
-          digit('0'),
-          key(
             onTap: () => tap(() => onClear?.call()),
-            color: KioskColors.azul,
+            color: KioskColors.azul.withValues(alpha: 0.2),
             elevated: false,
+            borderColor: KioskColors.azul,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.cleaning_services_outlined, color: Colors.white, size: 28),
+                Icon(Icons.cleaning_services_outlined, color: KioskColors.azul, size: 28),
                 SizedBox(width: 8),
                 Text(
                   'Limpiar',
-                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: KioskColors.azul, fontSize: 22, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          digit('0'),
+          key(
+            onTap: () => tap( okEnabled ? () => tap(onOk!) : () => {}),
+            color: okEnabled ? KioskColors.green.withValues(alpha: 0.2) : KioskColors.muted.withValues(alpha: 0.2),
+            elevated: false,
+            borderColor: okEnabled ? KioskColors.green : KioskColors.muted,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle, color: okEnabled ? KioskColors.green : KioskColors.muted, size: 28),
+                SizedBox(width: 8),
+                Text(
+                  'Confirmar',
+                  style: TextStyle(color: okEnabled ? KioskColors.green : KioskColors.muted, fontSize: 22, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
           ),
         ]),
-        if (onOk != null) ...[
-          SizedBox(height: gap + 4),
-          SizedBox(
-            height: 82,
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: okEnabled ? () => tap(onOk!) : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: KioskColors.green,
-                disabledBackgroundColor: const Color(0xFF86EFAC),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                textStyle: const TextStyle(fontSize: 27, fontWeight: FontWeight.w700),
-              ),
-              child: Text(okLabel),
-            ),
-          ),
-        ],
       ],
     );
   }
