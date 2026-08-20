@@ -35,6 +35,7 @@ enum KioskScreen {
   adminLog,
   novedadCedula,
   novedadForm,
+  novedadQuien,
   novedadAutoriza,
 }
 
@@ -169,7 +170,15 @@ class KioskController extends ChangeNotifier {
 
   void volverNovedadForm() {
     error = null;
+    novedadQuien = null;
+    novedadQuienDesdeLista = false;
     screen = KioskScreen.novedadForm;
+    notifyListeners();
+  }
+
+  void volverNovedadQuien() {
+    error = null;
+    screen = KioskScreen.novedadQuien;
     notifyListeners();
   }
 
@@ -199,9 +208,10 @@ class KioskController extends ChangeNotifier {
       novedadQuienDesdeLista = false;
       screen = KioskScreen.novedadForm;
     } on StateError catch (e) {
-      error = e.message;
-    } catch (_) {
+      error = e.message.isNotEmpty ? e.message : 'No se pudo preparar la novedad.';
+    } catch (e) {
       error = 'No se pudo preparar la novedad. Intenta de nuevo.';
+      debugPrint('identificarNovedad: $e');
     }
     busy = false;
     notifyListeners();
@@ -209,12 +219,25 @@ class KioskController extends ChangeNotifier {
 
   void elegirMotivoNovedad(String motivo) {
     novedadMotivo = motivo;
-    if (motivo != NovedadMotivos.diligencia) {
-      novedadQuien = null;
-      novedadQuienDesdeLista = false;
-    }
+    novedadQuien = null;
+    novedadQuienDesdeLista = false;
     error = null;
     notifyListeners();
+  }
+
+  /// Paso 1: si no es diligencia guarda; si es diligencia pasa a quién autoriza.
+  Future<void> continuarNovedadMotivo() async {
+    final motivo = novedadMotivo;
+    if (motivo == null || motivo.isEmpty || busy) return;
+    if (motivo == NovedadMotivos.diligencia) {
+      novedadQuien = null;
+      novedadQuienDesdeLista = false;
+      error = null;
+      screen = KioskScreen.novedadQuien;
+      notifyListeners();
+      return;
+    }
+    await guardarNovedad();
   }
 
   Future<void> elegirAutorizaNovedad(String quien) async {
@@ -236,7 +259,7 @@ class KioskController extends ChangeNotifier {
     final nombre = sel.nombre.trim().isEmpty ? 'Empleado ${sel.identificacion}' : sel.nombre.trim();
     novedadQuien = nombre.length <= 80 ? nombre : '${nombre.substring(0, 79).trim()}…';
     novedadQuienDesdeLista = true;
-    screen = KioskScreen.novedadForm;
+    screen = KioskScreen.novedadQuien;
     error = null;
     notifyListeners();
   }
@@ -735,6 +758,7 @@ class _ScreenHost extends StatelessWidget {
         KioskScreen.adminLog => AdminLogScreen(controller: controller),
         KioskScreen.novedadCedula => NovedadCedulaScreen(controller: controller),
         KioskScreen.novedadForm => NovedadFormScreen(controller: controller),
+        KioskScreen.novedadQuien => NovedadQuienScreen(controller: controller),
         KioskScreen.novedadAutoriza => NovedadAutorizaEmpleadoScreen(controller: controller),
       },
     );
@@ -848,21 +872,21 @@ class _CedulaScreenState extends State<CedulaScreen> {
                     ),
                   const Spacer(),
                   SizedBox(
-                    height: 64,
+                    height: 94,
                     child: Row(
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: widget.controller.abrirNovedad,
-                            icon: const Icon(Icons.event_note_outlined, color: KioskColors.green),
+                            icon: const Icon(Icons.event_note_outlined, color: KioskColors.green, size: 32),
                             label: const Text(
                               'Registrar novedad',
-                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: KioskColors.green),
+                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: KioskColors.green),
                             ),
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: KioskColors.green, width: 2),
                               backgroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                             ),
                           ),
@@ -871,15 +895,15 @@ class _CedulaScreenState extends State<CedulaScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: widget.controller.syncUi.syncing ? null : widget.controller.sincronizarAhora,
-                            icon: const Icon(Icons.sync, color: KioskColors.green),
+                            icon: const Icon(Icons.sync, color: KioskColors.azul, size: 32),
                             label: Text(
                               widget.controller.syncUi.syncing ? 'Sincronizando…' : 'Sincronizar',
-                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: KioskColors.green),
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: KioskColors.azul),
                             ),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: KioskColors.green, width: 2),
+                              side: const BorderSide(color: KioskColors.azul, width: 2),
                               backgroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                             ),
                           ),
@@ -1062,7 +1086,7 @@ class _ReconocerScreenState extends State<ReconocerScreen> {
                 const SizedBox(height: 20),
                 Text(emp.nombre, style: const TextStyle(fontSize: 52, fontWeight: FontWeight.w600, color: KioskColors.ink, height: 1.05, letterSpacing: -1)),
                 const SizedBox(height: 12),
-                Text('${emp.cargo} · C.C. ${emp.identificacion}', style: const TextStyle(fontSize: 22, color: KioskColors.muted)),
+                Text('${emp.cargo} \nIdentificación: ${emp.identificacion}', style: const TextStyle(fontSize: 22, color: KioskColors.muted)),
                 const SizedBox(height: 34),
                 const Row(
                   children: [

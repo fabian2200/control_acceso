@@ -160,17 +160,17 @@ class KioskKeypad extends StatelessWidget {
         row([
           key(
             onTap: () => tap(() => onClear?.call()),
-            color: KioskColors.azul.withValues(alpha: 0.2),
+            color: KioskColors.red.withValues(alpha: 0.2),
             elevated: false,
-            borderColor: KioskColors.azul,
+            borderColor: KioskColors.red,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.cleaning_services_outlined, color: KioskColors.azul, size: 28),
+                Icon(Icons.cleaning_services_outlined, color: KioskColors.red, size: 28),
                 SizedBox(width: 8),
                 Text(
                   'Limpiar',
-                  style: TextStyle(color: KioskColors.azul, fontSize: 22, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: KioskColors.red, fontSize: 22, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -178,17 +178,17 @@ class KioskKeypad extends StatelessWidget {
           digit('0'),
           key(
             onTap: () => tap( okEnabled ? () => tap(onOk!) : () => {}),
-            color: okEnabled ? KioskColors.green.withValues(alpha: 0.2) : KioskColors.muted.withValues(alpha: 0.2),
+            color: okEnabled ? KioskColors.green : KioskColors.muted.withValues(alpha: 0.2),
             elevated: false,
             borderColor: okEnabled ? KioskColors.green : KioskColors.muted,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle, color: okEnabled ? KioskColors.green : KioskColors.muted, size: 28),
+                Icon(Icons.check_circle, color: okEnabled ? const Color.fromARGB(255, 255, 255, 255) : KioskColors.muted, size: 28),
                 SizedBox(width: 8),
                 Text(
                   'Confirmar',
-                  style: TextStyle(color: okEnabled ? KioskColors.green : KioskColors.muted, fontSize: 22, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: okEnabled ? const Color.fromARGB(255, 255, 255, 255) : KioskColors.muted, fontSize: 22, fontWeight: FontWeight.w700),
                 ),
               ],
             ),

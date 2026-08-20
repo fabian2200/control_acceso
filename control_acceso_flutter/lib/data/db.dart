@@ -34,7 +34,16 @@ class AccesoDb {
           await db.execute('ALTER TABLE acceso_salidas_ocasionales RENAME COLUMN mandado_por TO autorizado_por');
         }
         if (oldVersion < 4) {
-          await db.execute('''
+          await _ensureNovedadesTable(db);
+        }
+      },
+    );
+    await _ensureNovedadesTable(_db!);
+    return _db!;
+  }
+
+  static Future<void> _ensureNovedadesTable(Database db) async {
+    await db.execute('''
 CREATE TABLE IF NOT EXISTS acceso_novedades (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT NOT NULL UNIQUE,
@@ -53,12 +62,8 @@ CREATE TABLE IF NOT EXISTS acceso_novedades (
   UNIQUE (empleado_id, fecha, jornada)
 )
 ''');
-          await db.execute('CREATE INDEX IF NOT EXISTS idx_novedades_sync ON acceso_novedades(sincronizado)');
-          await db.execute('CREATE INDEX IF NOT EXISTS idx_novedades_fecha ON acceso_novedades(fecha)');
-        }
-      },
-    );
-    return _db!;
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_novedades_sync ON acceso_novedades(sincronizado)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_novedades_fecha ON acceso_novedades(fecha)');
   }
 
   Map<String, Object?> coerce(String table, Map<String, Object?> row) {

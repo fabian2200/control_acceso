@@ -593,7 +593,8 @@ class AccesoService {
       if (_entradaHabilitadaPorPermiso(now, graciaPermiso)) {
         return {'enabled': true, 'motivo': null, 'porPermiso': true};
       }
-      if (tieneNovedad) {
+      // Novedad de J1 no reabre entrada 1 cuando ya empezó la jornada 2.
+      if (tieneNovedad && !(slot['jornada'] == '1' && _jornada2Comenzo(item, now))) {
         return {'enabled': true, 'motivo': null, 'porNovedad': true};
       }
       return {'enabled': false, 'motivo': 'Marcación no registrada'};
