@@ -12,7 +12,6 @@ class AccesoService {
   final AccesoDb _db;
   static const _horasAntes = 2;
   static const _horasDespuesEntrada = 1;
-  static const _minutosAntesJornada2 = 30;
   static const _minutosGraciaPermiso = 5;
 
   Future<Identificado?> identificar(String cedula) async {
@@ -109,7 +108,6 @@ class AccesoService {
     }
 
     final permisosGracia = await _permisosParaGracia(empleadoId);
-    final jornadaActual = _jornadaEntradaActual(item, now);
     final botones = <BotonJornada>[];
     for (final slot in _definicionSlots()) {
       final hora = _hora(item, slot['campo'] as String);
@@ -123,7 +121,6 @@ class AccesoService {
         slot,
         now,
         graciaPermiso,
-        jornadaActual,
       );
       final motivo = estado['motivo'] as String?;
       final enabled = estado['enabled'] as bool;
@@ -131,7 +128,7 @@ class AccesoService {
       final horaAm = HoraFmt.from(hora);
       final ventana = porPermiso && graciaPermiso != null
           ? 'Permiso hasta ${HoraFmt.of(graciaPermiso)}'
-          : _textoVentana(item, slot, hora, now);
+          : _textoVentana(slot, hora, now);
       botones.add(BotonJornada(
         tipo: slot['tipo'] as String,
         campo: slot['campo'] as String,
@@ -541,62 +538,61 @@ class AccesoService {
     Map<String, String> slot,
     DateTime now,
     DateTime? graciaPermiso,
-    String? jornadaActual,
   ) async {
     final hora = _hora(item, slot['campo']!);
     if (await _yaRegistrado(empleadoId, slot['tipo']!, hora, now)) {
       return {'enabled': false, 'motivo': 'Ya registrada'};
     }
     final centro = _carbonHora(now, hora);
-    if (centro != null) {
+    if (centro == null) return {'enabled': true, 'motivo': null};
+
+    if (slot['tipo'] == 'entrada') {
       final desde = centro.subtract(const Duration(hours: _horasAntes));
+      final hasta = centro.add(const Duration(hours: _horasDespuesEntrada));
+      final limite = DateTime(hasta.year, hasta.month, hasta.day, hasta.hour, hasta.minute, 59);
       if (now.isBefore(desde)) {
-        final salidaPorEntrada = slot['tipo'] == 'salida' &&
-            slot['jornada'] == _jornadaEnCurso(item, now) &&
-            await _tieneEntradaDeJornada(empleadoId, item, slot['jornada']!, now);
-        if (!salidaPorEntrada) {
-          return {
-            'enabled': false,
-            'motivo': 'Puedes marcar desde las ${HoraFmt.of(desde)}',
-          };
-        }
+        return {
+          'enabled': false,
+          'motivo': 'Puedes marcar desde las ${HoraFmt.of(desde)}',
+        };
       }
-      if (slot['tipo'] == 'entrada') {
-        final hasta = centro.add(const Duration(hours: _horasDespuesEntrada));
-        final limite = DateTime(hasta.year, hasta.month, hasta.day, hasta.hour, hasta.minute, 59);
-        if (now.isAfter(limite)) {
-          if (_entradaHabilitadaPorPermiso(slot, jornadaActual, now, graciaPermiso)) {
-            return {'enabled': true, 'motivo': null, 'porPermiso': true};
-          }
-          return {'enabled': false, 'motivo': 'Fuera de horario'};
-        }
-      } else {
-        final corte = _horaCierreSalida(item, slot, now);
-        if (corte != null && !now.isBefore(corte)) {
-          return {'enabled': false, 'motivo': 'Fuera de horario'};
-        }
+      if (!now.isAfter(limite)) {
+        return {'enabled': true, 'motivo': null};
       }
+      if (_entradaHabilitadaPorPermiso(now, graciaPermiso)) {
+        return {'enabled': true, 'motivo': null, 'porPermiso': true};
+      }
+      return {'enabled': false, 'motivo': 'Fuera de horario'};
     }
-    return {'enabled': true, 'motivo': null};
+
+    if (slot['jornada'] == '1' && _jornada2Comenzo(item, now)) {
+      return {'enabled': false, 'motivo': 'Fuera de horario'};
+    }
+    final desde = centro.subtract(const Duration(hours: _horasAntes));
+    final tieneEntrada = await _tieneEntradaDeJornada(empleadoId, item, slot['jornada']!, now);
+    if (!now.isBefore(desde) || tieneEntrada) {
+      return {'enabled': true, 'motivo': null};
+    }
+    return {
+      'enabled': false,
+      'motivo': 'Puedes marcar desde las ${HoraFmt.of(desde)}',
+    };
   }
 
-  bool _entradaHabilitadaPorPermiso(
-    Map<String, String> slot,
-    String? jornadaActual,
-    DateTime now,
-    DateTime? graciaPermiso,
-  ) {
-    if (slot['tipo'] != 'entrada' || jornadaActual == null) return false;
-    if (slot['jornada'] != jornadaActual) return false;
+  bool _entradaHabilitadaPorPermiso(DateTime now, DateTime? graciaPermiso) {
     return graciaPermiso != null && !now.isAfter(graciaPermiso);
+  }
+
+  /// Jornada 2 en su hora real (`entrada_jornada_2`), no 2 h antes.
+  bool _jornada2Comenzo(Map<String, Object?> item, DateTime now) {
+    final entradaJ2 = _carbonHora(now, _hora(item, 'entrada_jornada_2'));
+    return entradaJ2 != null && !now.isBefore(entradaJ2);
   }
 
   /// Jornada de trabajo en curso (1 hasta que inicia J2). No usa el hueco de entrada.
   String _jornadaEnCurso(Map<String, Object?>? item, DateTime now) {
     if (item == null || !_tieneJornada2(item)) return '1';
-    final entradaJ2 = _carbonHora(now, _hora(item, 'entrada_jornada_2'));
-    if (entradaJ2 != null && !now.isBefore(entradaJ2)) return '2';
-    return '1';
+    return _jornada2Comenzo(item, now) ? '2' : '1';
   }
 
   Future<bool> _tieneEntradaDeJornada(
@@ -634,23 +630,7 @@ class AccesoService {
     return _yaRegistrado(empleadoId, 'salida', hora, now.add(const Duration(days: 1)));
   }
 
-  /// Entrada de la jornada en curso. En el hueco J1–J2 no hay entrada que reabrir.
-  String? _jornadaEntradaActual(Map<String, Object?> item, DateTime now) {
-    final salidaJ1 = _carbonHora(now, _hora(item, 'salida_jornada_1'));
-    final entradaJ2 = _carbonHora(now, _hora(item, 'entrada_jornada_2'));
-    if (_tieneJornada2(item) && entradaJ2 != null && !now.isBefore(entradaJ2)) {
-      return '2';
-    }
-    final finJ1 = salidaJ1 ?? entradaJ2;
-    if (_tieneJornada2(item) && finJ1 != null && !now.isBefore(finJ1)) {
-      return null;
-    }
-    if (_hora(item, 'entrada_jornada_1') != null) return '1';
-    if (_tieneJornada2(item)) return '2';
-    return '1';
-  }
-
-  String? _textoVentana(Map<String, Object?> item, Map<String, String> slot, String? hora, DateTime now) {
+  String? _textoVentana(Map<String, String> slot, String? hora, DateTime now) {
     final centro = _carbonHora(now, hora);
     if (centro == null) return null;
     final desde = centro.subtract(const Duration(hours: _horasAntes));
@@ -658,18 +638,7 @@ class AccesoService {
       final hasta = centro.add(const Duration(hours: _horasDespuesEntrada));
       return '${HoraFmt.of(desde)} – ${HoraFmt.of(hasta)}';
     }
-    final corte = _horaCierreSalida(item, slot, now);
-    if (corte != null) {
-      return '${HoraFmt.of(desde)} – ${HoraFmt.of(corte)}';
-    }
     return 'Desde las ${HoraFmt.of(desde)}';
-  }
-
-  DateTime? _horaCierreSalida(Map<String, Object?> item, Map<String, String> slot, DateTime now) {
-    if (slot['tipo'] != 'salida' || slot['jornada'] != '1') return null;
-    final entradaJ2 = _carbonHora(now, _hora(item, 'entrada_jornada_2'));
-    if (entradaJ2 == null) return null;
-    return entradaJ2.subtract(const Duration(minutes: _minutosAntesJornada2));
   }
 
   DateTime? _limiteGraciaPermiso(

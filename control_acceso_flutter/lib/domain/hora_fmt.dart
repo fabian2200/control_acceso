@@ -2,13 +2,16 @@
 class HoraFmt {
   HoraFmt._();
 
+  static DateTime wall(DateTime dt) => dt.isUtc ? dt.toLocal() : dt;
+
   static String of(DateTime dt, {bool seconds = false}) {
-    final h12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final ampm = dt.hour < 12 ? 'AM' : 'PM';
+    final local = wall(dt);
+    final h12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final ampm = local.hour < 12 ? 'AM' : 'PM';
     final hm =
-        '${h12.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+        '${h12.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
     if (!seconds) return '$hm $ampm';
-    return '$hm:${dt.second.toString().padLeft(2, '0')} $ampm';
+    return '$hm:${local.second.toString().padLeft(2, '0')} $ampm';
   }
 
   /// Acepta `HH:mm`, `HH:mm:ss`, `HHmm` o un timestamp `yyyy-MM-dd HH:mm:ss`.
@@ -23,12 +26,14 @@ class HoraFmt {
 
   static DateTime? parse(Object? value) {
     if (value == null) return null;
-    if (value is DateTime) return value;
+    if (value is DateTime) return wall(value);
     final s = value.toString().trim();
     if (s.isEmpty || s == '--:--') return null;
 
-    if (s.contains('-') || s.contains('T') || (s.contains(' ') && RegExp(r'\d{4}').hasMatch(s))) {
-      return DateTime.tryParse(s.replaceFirst(' ', 'T'));
+    if (s.contains('-') || s.contains('T') || (s.contains(' ') && RegExp(r'\d{4}-\d{2}').hasMatch(s))) {
+      final dt = DateTime.tryParse(s.replaceFirst(' ', 'T'));
+      if (dt == null) return null;
+      return dt.isUtc ? dt.toLocal() : dt;
     }
 
     final digits = s.replaceAll(RegExp(r'\D'), '');

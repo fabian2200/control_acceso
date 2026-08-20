@@ -82,7 +82,9 @@ class LogsService {
 
   DateTime? _dt(Object? v) {
     if (v == null) return null;
-    return DateTime.tryParse(v.toString().replaceFirst(' ', 'T'));
+    final dt = DateTime.tryParse(v.toString().replaceFirst(' ', 'T'));
+    if (dt == null) return null;
+    return HoraFmt.wall(dt);
   }
 
   int _int(Object? v) {

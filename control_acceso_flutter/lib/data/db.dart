@@ -229,11 +229,12 @@ class AccesoDb {
 
   LogItem _logRegistro(Map<String, Object?> row) {
     final tipo = '${row['tipo']}';
-    final cuando = DateTime.tryParse('${row['registrado_en']}'.replaceFirst(' ', 'T')) ?? DateTime.now();
+    final cuando = DateTime.tryParse('${row['registrado_en']}'.replaceFirst(' ', 'T'));
+    final cuandoLocal = cuando == null ? DateTime.now() : HoraFmt.wall(cuando);
     final tarde = (row['llego_tarde'] as int? ?? 0) + (row['salio_tarde'] as int? ?? 0);
     final esperada = HoraFmt.from(row['hora_esperada']);
     return LogItem(
-      cuando: cuando,
+      cuando: cuandoLocal,
       tipo: tipo,
       titulo: _tituloTipo(tipo),
       detalle: [
@@ -248,12 +249,13 @@ class AccesoDb {
   Iterable<LogItem> _logOcasional(Map<String, Object?> row) sync* {
     final salida = DateTime.tryParse('${row['salida_en']}'.replaceFirst(' ', 'T'));
     if (salida != null) {
+      final cuando = HoraFmt.wall(salida);
       yield LogItem(
-        cuando: salida,
+        cuando: cuando,
         tipo: 'salida_ocasional',
         titulo: 'Salida ocasional',
         detalle: [
-          HoraFmt.of(salida),
+          HoraFmt.of(cuando),
           if ((row['motivo_texto'] as String?)?.isNotEmpty == true) '${row['motivo_texto']}',
           if ((row['autorizado_por'] as String?)?.isNotEmpty == true) 'autorizado por ${row['autorizado_por']}',
           if ((row['hora_regreso_esperada'] as String?)?.isNotEmpty == true)
@@ -263,13 +265,14 @@ class AccesoDb {
     }
     final regreso = DateTime.tryParse('${row['regreso_en']}'.replaceFirst(' ', 'T'));
     if (regreso != null) {
+      final cuando = HoraFmt.wall(regreso);
       final tarde = row['minutos_tarde'] as int? ?? 0;
       yield LogItem(
-        cuando: regreso,
+        cuando: cuando,
         tipo: 'regreso',
         titulo: 'Regreso',
         detalle: [
-          HoraFmt.of(regreso),
+          HoraFmt.of(cuando),
           if (tarde > 0) 'tarde $tarde min',
         ].join(' · '),
         alerta: tarde > 0,

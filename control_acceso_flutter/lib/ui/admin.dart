@@ -187,7 +187,7 @@ class AdminLogScreen extends StatelessWidget {
                                 SizedBox(
                                   width: 168,
                                   child: Text(
-                                    '${DateFormat("d MMM", 'es').format(item.cuando)} ${HoraFmt.of(item.cuando)}',
+                                    '${DateFormat("d MMM", 'es').format(HoraFmt.wall(item.cuando))} ${HoraFmt.of(item.cuando)}',
                                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: KioskColors.ink),
                                   ),
                                 ),
