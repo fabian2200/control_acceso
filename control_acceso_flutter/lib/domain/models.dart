@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'hora_fmt.dart';
+
 class Identificado {
   const Identificado({
     required this.id,
@@ -155,3 +157,39 @@ class SyncUi {
     return 'Local';
   }
 }
+
+class NovedadContexto {
+  const NovedadContexto({
+    required this.empleadoId,
+    required this.fecha,
+    required this.jornada,
+    this.horaInicio,
+    this.horaFin,
+  });
+
+  final int empleadoId;
+  final String fecha;
+  final int jornada;
+  final String? horaInicio;
+  final String? horaFin;
+
+  String get rangoLabel {
+    final a = horaInicio == null || horaInicio!.isEmpty ? '—' : HoraFmt.from(horaInicio);
+    final b = horaFin == null || horaFin!.isEmpty ? '—' : HoraFmt.from(horaFin);
+    return '$a – $b';
+  }
+}
+
+class NovedadMotivos {
+  static const diligencia = 'Diligencia Empresarial';
+  static const otro = 'Otro';
+  static const todos = <String>[
+    'Situación familiar',
+    'Problema de transporte',
+    'Cita médica',
+    'Trámite personal',
+    diligencia,
+    otro,
+  ];
+}
+

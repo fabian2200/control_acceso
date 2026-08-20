@@ -107,6 +107,25 @@ CREATE TABLE IF NOT EXISTS acceso_sync_checkpoints (
 )
 ''',
     '''
+CREATE TABLE IF NOT EXISTS acceso_novedades (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT NOT NULL UNIQUE,
+  empleado_id INTEGER NOT NULL,
+  terminal_id INTEGER,
+  fecha TEXT NOT NULL,
+  jornada INTEGER NOT NULL,
+  hora_inicio_jornada TEXT,
+  hora_fin_jornada TEXT,
+  motivo TEXT NOT NULL,
+  quien_autoriza TEXT,
+  aprobada INTEGER,
+  sincronizado INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT,
+  updated_at TEXT,
+  UNIQUE (empleado_id, fecha, jornada)
+)
+''',
+    '''
 CREATE TABLE IF NOT EXISTS admin_acceso (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   usuario TEXT NOT NULL UNIQUE,
@@ -227,6 +246,8 @@ CREATE TABLE IF NOT EXISTS users (
     'CREATE INDEX IF NOT EXISTS idx_ocasionales_emp_estado ON acceso_salidas_ocasionales(empleado_id, estado)',
     'CREATE INDEX IF NOT EXISTS idx_ocasionales_sync ON acceso_salidas_ocasionales(sincronizado)',
     'CREATE INDEX IF NOT EXISTS idx_horario_items_dia ON acceso_horario_items(horario_id, dia_semana)',
+    'CREATE INDEX IF NOT EXISTS idx_novedades_sync ON acceso_novedades(sincronizado)',
+    'CREATE INDEX IF NOT EXISTS idx_novedades_fecha ON acceso_novedades(fecha)',
   ];
 
   static const columns = <String, List<String>>{
@@ -252,6 +273,11 @@ CREATE TABLE IF NOT EXISTS users (
       'created_at', 'updated_at',
     ],
     'acceso_sync_checkpoints': ['tabla', 'pulled_at', 'cursor', 'updated_at'],
+    'acceso_novedades': [
+      'id', 'uuid', 'empleado_id', 'terminal_id', 'fecha', 'jornada',
+      'hora_inicio_jornada', 'hora_fin_jornada', 'motivo', 'quien_autoriza',
+      'aprobada', 'sincronizado', 'created_at', 'updated_at',
+    ],
     'admin_acceso': ['id', 'usuario', 'password'],
     'cargos': ['id', 'nombre', 'estado'],
     'departamentos': ['id', 'nombre', 'estado', 'lider_id'],

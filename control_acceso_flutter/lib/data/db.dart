@@ -17,7 +17,7 @@ class AccesoDb {
     final path = p.join(dir, 'acceso_control.db');
     _db = await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, _) async {
         for (final sql in AccesoSchema.tables) {
           await db.execute(sql);
@@ -32,6 +32,29 @@ class AccesoDb {
         }
         if (oldVersion < 3) {
           await db.execute('ALTER TABLE acceso_salidas_ocasionales RENAME COLUMN mandado_por TO autorizado_por');
+        }
+        if (oldVersion < 4) {
+          await db.execute('''
+CREATE TABLE IF NOT EXISTS acceso_novedades (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT NOT NULL UNIQUE,
+  empleado_id INTEGER NOT NULL,
+  terminal_id INTEGER,
+  fecha TEXT NOT NULL,
+  jornada INTEGER NOT NULL,
+  hora_inicio_jornada TEXT,
+  hora_fin_jornada TEXT,
+  motivo TEXT NOT NULL,
+  quien_autoriza TEXT,
+  aprobada INTEGER,
+  sincronizado INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT,
+  updated_at TEXT,
+  UNIQUE (empleado_id, fecha, jornada)
+)
+''');
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_novedades_sync ON acceso_novedades(sincronizado)');
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_novedades_fecha ON acceso_novedades(fecha)');
         }
       },
     );

@@ -129,6 +129,29 @@ CREATE TABLE IF NOT EXISTS `acceso_sync_checkpoints` (
   PRIMARY KEY (`tabla`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `acceso_novedades` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `uuid` char(36) NOT NULL,
+  `empleado_id` int(11) NOT NULL,
+  `terminal_id` bigint(20) unsigned DEFAULT NULL,
+  `fecha` date NOT NULL,
+  `jornada` tinyint(3) unsigned NOT NULL,
+  `hora_inicio_jornada` time DEFAULT NULL,
+  `hora_fin_jornada` time DEFAULT NULL,
+  `motivo` varchar(120) NOT NULL,
+  `quien_autoriza` varchar(80) DEFAULT NULL,
+  `aprobada` tinyint(1) DEFAULT NULL,
+  `sincronizado` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `acceso_novedades_uuid_unique` (`uuid`),
+  UNIQUE KEY `acceso_novedades_empleado_fecha_jornada_unique` (`empleado_id`,`fecha`,`jornada`),
+  KEY `acceso_novedades_empleado_fecha` (`empleado_id`,`fecha`),
+  KEY `acceso_novedades_updated_at` (`updated_at`),
+  KEY `acceso_novedades_sincronizado` (`sincronizado`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO `acceso_terminales` (`codigo`,`nombre`,`ubicacion`,`activo`,`api_token`,`created_at`,`updated_at`)
 SELECT 'REC-01','Recepción','Torre Norte',1,'e329d6926b529b6fa6133580c19b3382fcf9d4bbda240850cceeba61058ed3ac',NOW(),NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `acceso_terminales` WHERE `codigo`='REC-01');

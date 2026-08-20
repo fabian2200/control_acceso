@@ -82,4 +82,39 @@ class AccesoApi {
     }
     return body;
   }
+
+  Future<Map<String, dynamic>> pushNovedades(Map<String, dynamic> payload) async {
+    final base = await baseUrl;
+    final res = await http
+        .post(
+          Uri.parse('$base/api/sync/novedades'),
+          headers: await _headers(),
+          body: jsonEncode(payload),
+        )
+        .timeout(const Duration(seconds: 60));
+    if (res.statusCode != 200) {
+      throw Exception('novedades HTTP ${res.statusCode}');
+    }
+    final body = jsonDecode(res.body);
+    if (body is! Map<String, dynamic>) {
+      throw Exception('novedades inválido');
+    }
+    return body;
+  }
+
+  Future<Map<String, dynamic>> pullNovedades({String? since}) async {
+    final base = await baseUrl;
+    final uri = Uri.parse('$base/api/sync/novedades').replace(
+      queryParameters: since == null || since.isEmpty ? null : {'since': since},
+    );
+    final res = await http.get(uri, headers: await _headers()).timeout(const Duration(seconds: 60));
+    if (res.statusCode != 200) {
+      throw Exception('novedades pull HTTP ${res.statusCode}');
+    }
+    final body = jsonDecode(res.body);
+    if (body is! Map<String, dynamic> || body['ok'] != true) {
+      throw Exception('novedades pull inválido');
+    }
+    return body;
+  }
 }

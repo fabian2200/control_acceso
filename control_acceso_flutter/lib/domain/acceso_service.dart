@@ -108,6 +108,7 @@ class AccesoService {
     }
 
     final permisosGracia = await _permisosParaGracia(empleadoId);
+    final fechaHoy = _fecha(now);
     final botones = <BotonJornada>[];
     for (final slot in _definicionSlots()) {
       final hora = _hora(item, slot['campo'] as String);
@@ -115,26 +116,41 @@ class AccesoService {
       final graciaPermiso = slot['tipo'] == 'entrada'
           ? _limiteGraciaPermiso(permisosGracia, now, horaEntrada: hora)
           : null;
+      final jornadaSlot = int.tryParse(slot['jornada'] ?? '') ?? 1;
+      final tieneNovedad = slot['tipo'] == 'entrada'
+          ? await _tieneNovedadHabilitante(empleadoId, fechaHoy, jornadaSlot)
+          : false;
       final estado = await _estadoSlot(
         empleadoId,
         item,
         slot,
         now,
         graciaPermiso,
+        tieneNovedad: tieneNovedad,
       );
       final motivo = estado['motivo'] as String?;
       final enabled = estado['enabled'] as bool;
       final porPermiso = estado['porPermiso'] == true;
+      final porNovedad = estado['porNovedad'] == true;
       final horaAm = HoraFmt.from(hora);
-      final ventana = porPermiso && graciaPermiso != null
-          ? 'Permiso hasta ${HoraFmt.of(graciaPermiso)}'
-          : (slot['tipo'] == 'salida' && enabled ? null : _textoVentana(slot, hora, now));
+      final String? ventana;
+      if (porNovedad) {
+        ventana = null;
+      } else if (porPermiso && graciaPermiso != null) {
+        ventana = 'habilitado por permiso hasta ${HoraFmt.of(graciaPermiso)}';
+      } else if (slot['tipo'] == 'salida' && enabled) {
+        ventana = null;
+      } else {
+        ventana = _textoVentana(slot, hora, now);
+      }
       botones.add(BotonJornada(
         tipo: slot['tipo'] as String,
         campo: slot['campo'] as String,
         label: slot['label'] as String,
         sub: enabled
-            ? (ventana == null ? horaAm : 'Hora de entrada $horaAm \nPuedes marcar desde $ventana')
+            ? (porNovedad
+                ? 'Habilitado por novedad'
+                : (ventana == null ? horaAm : 'Hora de entrada $horaAm \nPuedes marcar desde $ventana'))
             : (motivo == 'Ya registrada' ? 'Ya registrada' : horaAm),
         nota: (!enabled && motivo != null && motivo != 'Ya registrada' && motivo != hora)
             ? motivo
@@ -238,6 +254,20 @@ class AccesoService {
       _ => throw ArgumentError('Tipo de registro no válido.'),
     };
   }
+
+  /// Solo lectura para módulos externos (p. ej. novedades). No altera marcas.
+  Future<Map<String, Object?>?> itemHorarioHoy(int empleadoId, [DateTime? now]) =>
+      _itemHorarioHoy(empleadoId, now ?? DateTime.now());
+
+  String? horaCampo(Map<String, Object?> item, String campo) => _hora(item, campo);
+
+  bool esDescansoItem(Map<String, Object?> item) => _esDescanso(item);
+
+  bool tieneJornada2Item(Map<String, Object?>? item) => _tieneJornada2(item);
+
+  String jornadaEnCurso(Map<String, Object?>? item, DateTime now) => _jornadaEnCurso(item, now);
+
+  DateTime? carbonHora(DateTime now, String? hora) => _carbonHora(now, hora);
 
   Future<Confirmacion> _registrarEntrada(int empleadoId, String? campo, String? foto) async {
     final now = DateTime.now();
@@ -537,8 +567,9 @@ class AccesoService {
     Map<String, Object?> item,
     Map<String, String> slot,
     DateTime now,
-    DateTime? graciaPermiso,
-  ) async {
+    DateTime? graciaPermiso, {
+    bool tieneNovedad = false,
+  }) async {
     final hora = _hora(item, slot['campo']!);
     if (await _yaRegistrado(empleadoId, slot['tipo']!, hora, now)) {
       return {'enabled': false, 'motivo': 'Ya registrada'};
@@ -562,6 +593,9 @@ class AccesoService {
       if (_entradaHabilitadaPorPermiso(now, graciaPermiso)) {
         return {'enabled': true, 'motivo': null, 'porPermiso': true};
       }
+      if (tieneNovedad) {
+        return {'enabled': true, 'motivo': null, 'porNovedad': true};
+      }
       return {'enabled': false, 'motivo': 'Marcación no registrada'};
     }
 
@@ -577,6 +611,16 @@ class AccesoService {
       'enabled': false,
       'motivo': 'Puedes marcar desde las ${HoraFmt.of(desde)}',
     };
+  }
+
+  Future<bool> _tieneNovedadHabilitante(int empleadoId, String fecha, int jornada) async {
+    final rows = await _db.query(
+      'acceso_novedades',
+      where: 'empleado_id = ? AND fecha = ? AND jornada = ? AND (aprobada IS NULL OR aprobada = 1)',
+      whereArgs: [empleadoId, fecha, jornada],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
   }
 
   bool _entradaHabilitadaPorPermiso(DateTime now, DateTime? graciaPermiso) {

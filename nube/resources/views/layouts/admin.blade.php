@@ -21,6 +21,7 @@
             <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'is-on' : '' }}">Inicio</a>
             <a href="{{ route('admin.horarios.index') }}" class="{{ request()->routeIs('admin.horarios.*') ? 'is-on' : '' }}">Horarios</a>
             <a href="{{ route('admin.empleados.index') }}" class="{{ request()->routeIs('admin.empleados.*') ? 'is-on' : '' }}">Empleados</a>
+            <a href="{{ route('admin.novedades.index') }}" class="{{ request()->routeIs('admin.novedades.*') ? 'is-on' : '' }}">Novedades</a>
         </nav>
         <form method="POST" action="{{ route('admin.logout') }}" class="side-out">
             @csrf

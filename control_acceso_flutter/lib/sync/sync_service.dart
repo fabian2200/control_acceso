@@ -57,7 +57,10 @@ class AccesoSync {
     final o = await db.rawQuery(
       'SELECT COUNT(*) c FROM acceso_salidas_ocasionales WHERE sincronizado = 0',
     );
-    return (r.first['c'] as int? ?? 0) + (o.first['c'] as int? ?? 0);
+    final n = await db.rawQuery(
+      'SELECT COUNT(*) c FROM acceso_novedades WHERE sincronizado = 0',
+    );
+    return (r.first['c'] as int? ?? 0) + (o.first['c'] as int? ?? 0) + (n.first['c'] as int? ?? 0);
   }
 
   Future<SyncResult> ejecutar() async {
@@ -69,7 +72,10 @@ class AccesoSync {
     try {
       await _pullCatalogo();
       await _pushMarcas();
+      await _pushNovedades();
+      await _pullNovedades();
       await recortarMarcasLocales();
+      await recortarNovedadesMesAnterior();
       return SyncResult(ok: true, online: true, pendientes: await pendientes());
     } catch (e) {
       return SyncResult(
@@ -163,6 +169,133 @@ class AccesoSync {
       where: "sincronizado = 1 AND estado != 'abierta' AND date(salida_en) < ?",
       whereArgs: [hoy],
     );
+  }
+
+  Future<void> _pushNovedades() async {
+    final db = await _db.database;
+    final terminalId = await _db.terminalId(AppConfig.terminalCodigo);
+    if (terminalId != null) {
+      await db.update('acceso_novedades', {'terminal_id': terminalId}, where: 'terminal_id IS NULL');
+    }
+    final rows = await db.query('acceso_novedades', where: 'sincronizado = 0', orderBy: 'id');
+    if (rows.isEmpty) return;
+
+    final ack = await _api.pushNovedades({
+      'novedades': rows.map(_payloadNovedad).toList(),
+    });
+
+    for (final item in (ack['novedades'] as List?) ?? const []) {
+      if (item is! Map || item['ok'] != true) continue;
+      final uuid = '${item['uuid'] ?? ''}';
+      if (uuid.isEmpty) continue;
+      await db.update(
+        'acceso_novedades',
+        {'sincronizado': 1},
+        where: 'uuid = ? AND sincronizado = 0',
+        whereArgs: [uuid],
+      );
+    }
+  }
+
+  Future<void> _pullNovedades() async {
+    final since = await _db.setting('novedades_since');
+    final data = await _api.pullNovedades(since: since);
+    final db = await _db.database;
+    final stamp = DateTime.now().toIso8601String();
+
+    for (final item in (data['novedades'] as List?) ?? const []) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final uuid = '${map['uuid'] ?? ''}';
+      if (uuid.isEmpty) continue;
+      final existentes = await db.query('acceso_novedades', where: 'uuid = ?', whereArgs: [uuid], limit: 1);
+      final aprobada = map['aprobada'];
+      int? aprobadaInt;
+      if (aprobada is bool) {
+        aprobadaInt = aprobada ? 1 : 0;
+      } else if (aprobada is num) {
+        aprobadaInt = aprobada.toInt();
+      } else if (aprobada != null) {
+        aprobadaInt = int.tryParse('$aprobada');
+      }
+
+      if (existentes.isEmpty) {
+        final conflicto = await db.query(
+          'acceso_novedades',
+          where: 'empleado_id = ? AND fecha = ? AND jornada = ?',
+          whereArgs: [
+            map['empleado_id'],
+            map['fecha']?.toString().substring(0, 10),
+            map['jornada'],
+          ],
+          limit: 1,
+        );
+        if (conflicto.isNotEmpty) {
+          await db.update(
+            'acceso_novedades',
+            {
+              'uuid': uuid,
+              'aprobada': aprobadaInt,
+              'sincronizado': 1,
+              'updated_at': stamp,
+            },
+            where: 'id = ?',
+            whereArgs: [conflicto.first['id']],
+          );
+        } else {
+          await db.insert('acceso_novedades', {
+            'uuid': uuid,
+            'empleado_id': map['empleado_id'],
+            'fecha': map['fecha']?.toString().substring(0, 10),
+            'jornada': map['jornada'],
+            'hora_inicio_jornada': map['hora_inicio_jornada'],
+            'hora_fin_jornada': map['hora_fin_jornada'],
+            'motivo': map['motivo'] ?? 'Novedad',
+            'quien_autoriza': map['quien_autoriza'],
+            'aprobada': aprobadaInt,
+            'sincronizado': 1,
+            'created_at': stamp,
+            'updated_at': stamp,
+          });
+        }
+      } else {
+        await db.update(
+          'acceso_novedades',
+          {
+            'aprobada': aprobadaInt,
+            'updated_at': stamp,
+          },
+          where: 'uuid = ?',
+          whereArgs: [uuid],
+        );
+      }
+    }
+
+    final serverTime = data['server_time']?.toString();
+    if (serverTime != null && serverTime.isNotEmpty) {
+      await _db.setSetting('novedades_since', serverTime);
+    }
+  }
+
+  Future<void> recortarNovedadesMesAnterior() async {
+    final now = DateTime.now();
+    final inicioMes =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-01';
+    final db = await _db.database;
+    await db.delete('acceso_novedades', where: 'fecha < ?', whereArgs: [inicioMes]);
+  }
+
+  Map<String, dynamic> _payloadNovedad(Map<String, Object?> row) {
+    return {
+      'uuid': row['uuid'],
+      'empleado_id': row['empleado_id'],
+      'fecha': row['fecha'],
+      'jornada': row['jornada'],
+      'hora_inicio_jornada': row['hora_inicio_jornada'],
+      'hora_fin_jornada': row['hora_fin_jornada'],
+      'motivo': row['motivo'],
+      'quien_autoriza': row['quien_autoriza'],
+    };
   }
 
   Map<String, dynamic> _payloadOcasional(Map<String, Object?> row) {

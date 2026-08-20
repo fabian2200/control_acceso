@@ -1,0 +1,44 @@
+---
+description: Convenciones del kiosko Flutter (marcas, ventanas, sync)
+globs: control_acceso_flutter/**/*.dart
+alwaysApply: false
+---
+
+# Kiosko Flutter
+
+Capa: `ui/` (pantallas) → `domain/acceso_service.dart` (reglas) → `data/db.dart` (SQLite). Sync en `sync/`.
+
+## Ventanas de marcación
+
+- Entrada: desde 2 h antes hasta 1 h después de la hora esperada.
+- Salida: desde 2 h antes, o antes si ya hay entrada de esa jornada.
+- Permiso aprobado: gracia de **5 min** tras `hora_fin` para habilitar entrada tarde (no reabre entrada de la mañana con un permiso de la tarde).
+- Salida ocasional bloqueada si la jornada en curso ya tiene salida.
+
+`dia_semana` de `acceso_horario_items` = `DateTime.weekday` (1=lun … 7=dom).
+
+## Tipos y slots
+
+Tipos: `entrada`, `salida`, `salida_ocasional`, `regreso`.
+Slots: `entrada_jornada_1`, `salida_jornada_1`, `entrada_jornada_2`, `salida_jornada_2`.
+
+Duplicado de marca: mismo `empleado_id` + `fecha` + `tipo` + `hora_esperada`.
+
+## Casos ocasional (`_clasificarOcasional`)
+
+- 1–3: queda **abierta** hasta el regreso.
+- 4–5: se **cierra al marcar** y puede insertar slot de salida de jornada.
+- Caso 3 al cerrar: si ya empezó J2, registra `entrada_jornada_2`; si no, pregunta.
+
+## Sync
+
+- Pull: reemplaza tablas de catálogo (`AccesoSchema.catalogTables`). No guardar `api_token` en SQLite.
+- Push: `sincronizado = 0` → POST `/api/sync/marcas` → ack pone `1`.
+- Luego recorta marcas sync de días anteriores. Abiertas no se borran.
+- URL NUBE persistida en setting `api_url`; token/terminal son compile-time (`AppConfig`).
+
+## UI
+
+Landscape, teclado táctil, español. PIN de admin abre `AdminScreen` (URL + logs), no el panel Laravel.
+No mover reglas de puntualidad a widgets.
+---

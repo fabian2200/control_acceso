@@ -5,29 +5,30 @@ alwaysApply: true
 
 # Esquema: solo SQL, sin migraciones
 
-Este proyecto **no usa migraciones Laravel**. El esquema se mantiene y aplica con SQL MySQL.
+Este proyecto **no usa migraciones Laravel**. El esquema MySQL se aplica a mano.
 
 ## Prohibido
 
-- Crear, editar o borrar archivos en `kiosko/database/migrations/`
-- Ejecutar `php artisan migrate`, `migrate:fresh`, `migrate:rollback` u otros comandos de migración
-- Usar `Schema::create` / `Schema::table` / `Blueprint` para cambiar la base
-- Añadir `artisan migrate` a scripts de setup
+- Crear, editar o borrar archivos en `nube/database/migrations/`
+- Ejecutar `php artisan migrate`, `migrate:fresh`, `migrate:rollback`
+- Usar `Schema::create` / `Schema::table` / `Blueprint`
+- Recrear tablas Workboard (`empleados`, `users`, `permisos`, etc.)
 
-Las migraciones existentes son legado: ignorarlas. No sincronizarlas con el SQL.
+Las migraciones existentes son legado: ignorarlas.
 
 ## Obligatorio
 
-Fuente de verdad del esquema de acceso (mantener ambos iguales):
+Fuente de verdad MySQL (mantener ambos iguales):
 
-- `kiosko/database/sql/acceso_control.sql`
+- `nube/database/sql/acceso_control.sql`
 - `workBoard.sql` (raíz del repo)
 
 Si hace falta un `ALTER`/`CREATE`/`DROP`:
 
-1. Editar esos `.sql` para que reflejen el estado final deseado (`CREATE TABLE IF NOT EXISTS` + `ALTER` idempotente si aplica).
+1. Editar esos `.sql` al estado final (`CREATE TABLE IF NOT EXISTS` + `ALTER` idempotente).
 2. Entregar el SQL para ejecutarlo a mano en MySQL (`workboard`).
-3. Actualizar modelos Eloquent (`$table`, `$guarded`, casts, relaciones).
+3. Actualizar modelos Eloquent en `nube/app/Models/`.
+4. Si la columna afecta al kiosko: `control_acceso_flutter/lib/data/schema.dart` (`tables` + `columns`) y, si hace falta, `onUpgrade` en `lib/data/db.dart`.
 
 ```sql
 -- ✅ GOOD: DDL en acceso_control.sql / workBoard.sql
@@ -38,9 +39,9 @@ ALTER TABLE `acceso_registros`
 -- database/migrations/2026_xx_xx_add_ejemplo.php
 ```
 
-## Formato SQL
+## Formato
 
 - MySQL InnoDB, `utf8mb4` / `utf8mb4_unicode_ci`
-- Tablas nuevas de este módulo: prefijo `acceso_`
-- No recrear tablas Workboard (`empleados`, `users`, `permisos`, etc.)
+- Tablas del módulo: prefijo `acceso_`
+- SQLite del kiosko espeja el catálogo + marcas locales; IDs del catálogo son los de MySQL
 ---

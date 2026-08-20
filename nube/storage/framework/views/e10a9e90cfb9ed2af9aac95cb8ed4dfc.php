@@ -21,6 +21,7 @@
             <a href="<?php echo e(route('admin.dashboard')); ?>" class="<?php echo e(request()->routeIs('admin.dashboard') ? 'is-on' : ''); ?>">Inicio</a>
             <a href="<?php echo e(route('admin.horarios.index')); ?>" class="<?php echo e(request()->routeIs('admin.horarios.*') ? 'is-on' : ''); ?>">Horarios</a>
             <a href="<?php echo e(route('admin.empleados.index')); ?>" class="<?php echo e(request()->routeIs('admin.empleados.*') ? 'is-on' : ''); ?>">Empleados</a>
+            <a href="<?php echo e(route('admin.novedades.index')); ?>" class="<?php echo e(request()->routeIs('admin.novedades.*') ? 'is-on' : ''); ?>">Novedades</a>
         </nav>
         <form method="POST" action="<?php echo e(route('admin.logout')); ?>" class="side-out">
             <?php echo csrf_field(); ?>

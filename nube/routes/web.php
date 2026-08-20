@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EmpleadoController;
 use App\Http\Controllers\Admin\HorarioController;
 use App\Http\Controllers\Admin\LoginController;
+use App\Http\Controllers\Admin\NovedadController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -32,5 +33,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/empleados', [EmpleadoController::class, 'index'])->name('empleados.index');
         Route::put('/empleados/{empleado}/horario', [EmpleadoController::class, 'asignar'])->name('empleados.asignar');
         Route::post('/empleados/asignar-lote', [EmpleadoController::class, 'asignarLote'])->name('empleados.asignar-lote');
+
+        Route::get('/novedades', [NovedadController::class, 'index'])->name('novedades.index');
+        Route::post('/novedades/{novedad}/aprobar', [NovedadController::class, 'aprobar'])->name('novedades.aprobar');
+        Route::post('/novedades/{novedad}/rechazar', [NovedadController::class, 'rechazar'])->name('novedades.rechazar');
     });
 });

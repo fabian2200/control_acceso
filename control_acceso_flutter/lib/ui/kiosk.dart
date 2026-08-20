@@ -10,9 +10,11 @@ import '../domain/acceso_service.dart';
 import '../domain/hora_fmt.dart';
 import '../domain/logs_service.dart';
 import '../domain/models.dart';
+import '../domain/novedad_service.dart';
 import '../sync/sync_service.dart';
 import 'admin.dart';
 import 'camera_screen.dart';
+import 'novedad.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -31,17 +33,22 @@ enum KioskScreen {
   confirmacion,
   admin,
   adminLog,
+  novedadCedula,
+  novedadForm,
+  novedadAutoriza,
 }
 
 class KioskController extends ChangeNotifier {
-  KioskController({AccesoService? acceso, AccesoSync? sync, LogsService? logs})
+  KioskController({AccesoService? acceso, AccesoSync? sync, LogsService? logs, NovedadService? novedades})
       : _acceso = acceso ?? AccesoService(),
         _sync = sync ?? AccesoSync(),
-        _logs = logs ?? LogsService();
+        _logs = logs ?? LogsService(),
+        _novedades = novedades ?? NovedadService();
 
   final AccesoService _acceso;
   final AccesoSync _sync;
   final LogsService _logs;
+  final NovedadService _novedades;
 
   KioskScreen screen = KioskScreen.cedula;
   SyncUi syncUi = const SyncUi();
@@ -69,6 +76,10 @@ class KioskController extends ChangeNotifier {
   AdminEmpleado? empleadoAdmin;
   List<LogItem> logsMes = const [];
   bool logsDesdeNube = false;
+  NovedadContexto? novedadContexto;
+  String? novedadMotivo;
+  String? novedadQuien;
+  bool novedadQuienDesdeLista = false;
 
   Future<void> start() async {
     apiUrl = await AccesoDb.instance.setting('api_url') ?? AppConfig.defaultApiUrl;
@@ -123,6 +134,135 @@ class KioskController extends ChangeNotifier {
     horaRegreso = null;
     empleadoAdmin = null;
     logsMes = const [];
+    busy = false;
+    novedadContexto = null;
+    novedadMotivo = null;
+    novedadQuien = null;
+    novedadQuienDesdeLista = false;
+    notifyListeners();
+  }
+
+  void abrirNovedad() {
+    error = null;
+    homeNotice = null;
+    empleado = null;
+    novedadContexto = null;
+    novedadMotivo = null;
+    novedadQuien = null;
+    novedadQuienDesdeLista = false;
+    screen = KioskScreen.novedadCedula;
+    notifyListeners();
+  }
+
+  void cancelarNovedad() => reset();
+
+  void volverNovedadCedula() {
+    error = null;
+    novedadContexto = null;
+    novedadMotivo = null;
+    novedadQuien = null;
+    novedadQuienDesdeLista = false;
+    empleado = null;
+    screen = KioskScreen.novedadCedula;
+    notifyListeners();
+  }
+
+  void volverNovedadForm() {
+    error = null;
+    screen = KioskScreen.novedadForm;
+    notifyListeners();
+  }
+
+  Future<void> identificarNovedad(String cedula) async {
+    error = null;
+    final digits = cedula.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 5) {
+      error = 'Ingresa un número de identificación válido.';
+      notifyListeners();
+      return;
+    }
+    busy = true;
+    notifyListeners();
+    try {
+      final found = await _acceso.identificar(digits);
+      if (found == null) {
+        error = 'Número de identificación no reconocido. Intenta de nuevo.';
+        busy = false;
+        notifyListeners();
+        return;
+      }
+      final ctx = await _novedades.resolverContexto(found.id);
+      empleado = found;
+      novedadContexto = ctx;
+      novedadMotivo = null;
+      novedadQuien = null;
+      novedadQuienDesdeLista = false;
+      screen = KioskScreen.novedadForm;
+    } on StateError catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'No se pudo preparar la novedad. Intenta de nuevo.';
+    }
+    busy = false;
+    notifyListeners();
+  }
+
+  void elegirMotivoNovedad(String motivo) {
+    novedadMotivo = motivo;
+    if (motivo != NovedadMotivos.diligencia) {
+      novedadQuien = null;
+      novedadQuienDesdeLista = false;
+    }
+    error = null;
+    notifyListeners();
+  }
+
+  Future<void> elegirAutorizaNovedad(String quien) async {
+    if (quien == 'Otro') {
+      novedadQuienDesdeLista = true;
+      novedadQuien = null;
+      empleadosAdmin = await AccesoDb.instance.empleadosAdmin();
+      screen = KioskScreen.novedadAutoriza;
+      notifyListeners();
+      return;
+    }
+    novedadQuienDesdeLista = false;
+    novedadQuien = quien;
+    error = null;
+    notifyListeners();
+  }
+
+  void elegirAutorizaEmpleadoNovedad(AdminEmpleado sel) {
+    final nombre = sel.nombre.trim().isEmpty ? 'Empleado ${sel.identificacion}' : sel.nombre.trim();
+    novedadQuien = nombre.length <= 80 ? nombre : '${nombre.substring(0, 79).trim()}…';
+    novedadQuienDesdeLista = true;
+    screen = KioskScreen.novedadForm;
+    error = null;
+    notifyListeners();
+  }
+
+  Future<void> guardarNovedad() async {
+    final ctx = novedadContexto;
+    final motivo = novedadMotivo;
+    if (ctx == null || motivo == null || busy) return;
+    busy = true;
+    error = null;
+    notifyListeners();
+    try {
+      await _novedades.registrar(
+        contexto: ctx,
+        motivo: motivo,
+        quienAutoriza: novedadQuien,
+      );
+      homeNotice = 'Novedad registrada · Jornada ${ctx.jornada}';
+      reset();
+      unawaited(tickSync());
+      return;
+    } on StateError catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'No se pudo guardar la novedad.';
+    }
     busy = false;
     notifyListeners();
   }
@@ -593,6 +733,9 @@ class _ScreenHost extends StatelessWidget {
         KioskScreen.confirmacion => ConfirmacionScreen(controller: controller),
         KioskScreen.admin => AdminScreen(controller: controller),
         KioskScreen.adminLog => AdminLogScreen(controller: controller),
+        KioskScreen.novedadCedula => NovedadCedulaScreen(controller: controller),
+        KioskScreen.novedadForm => NovedadFormScreen(controller: controller),
+        KioskScreen.novedadAutoriza => NovedadAutorizaEmpleadoScreen(controller: controller),
       },
     );
   }
@@ -706,19 +849,42 @@ class _CedulaScreenState extends State<CedulaScreen> {
                   const Spacer(),
                   SizedBox(
                     height: 64,
-                    child: OutlinedButton.icon(
-                      onPressed: widget.controller.syncUi.syncing ? null : widget.controller.sincronizarAhora,
-                      icon: const Icon(Icons.sync, color: KioskColors.green),
-                      label: Text(
-                        widget.controller.syncUi.syncing ? 'Sincronizando…' : 'Sincronizar',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: KioskColors.green),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: KioskColors.green, width: 2),
-                        backgroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: widget.controller.abrirNovedad,
+                            icon: const Icon(Icons.event_note_outlined, color: KioskColors.green),
+                            label: const Text(
+                              'Registrar novedad',
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: KioskColors.green),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: KioskColors.green, width: 2),
+                              backgroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: widget.controller.syncUi.syncing ? null : widget.controller.sincronizarAhora,
+                            icon: const Icon(Icons.sync, color: KioskColors.green),
+                            label: Text(
+                              widget.controller.syncUi.syncing ? 'Sincronizando…' : 'Sincronizar',
+                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: KioskColors.green),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: KioskColors.green, width: 2),
+                              backgroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
