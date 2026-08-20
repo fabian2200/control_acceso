@@ -108,12 +108,15 @@ class AccesoService {
       ];
     }
 
-    final graciaPermiso = await _limiteGraciaPermiso(empleadoId, now);
+    final permisosGracia = await _permisosParaGracia(empleadoId);
     final jornadaActual = _jornadaEntradaActual(item, now);
     final botones = <BotonJornada>[];
     for (final slot in _definicionSlots()) {
       final hora = _hora(item, slot['campo'] as String);
       if (hora == null) continue;
+      final graciaPermiso = slot['tipo'] == 'entrada'
+          ? _limiteGraciaPermiso(permisosGracia, now, horaEntrada: hora)
+          : null;
       final estado = await _estadoSlot(
         empleadoId,
         item,
@@ -157,7 +160,15 @@ class AccesoService {
   }
 
   Future<List<PermisoHoy>> permisosHoy(int userId) async {
-    final hoy = _fecha(DateTime.now());
+    final now = DateTime.now();
+    return [
+      for (final p in await _permisosAprobadosDelDia(userId, now))
+        if (_permisoEnRangoHorario(p, now)) p,
+    ];
+  }
+
+  Future<List<PermisoHoy>> _permisosAprobadosDelDia(int userId, DateTime now) async {
+    final hoy = _fecha(now);
     final rows = await _db.query(
       'permisos',
       where: '''
@@ -171,17 +182,36 @@ class AccesoService {
       whereArgs: [userId, hoy, hoy],
       orderBy: 'hora_inicio',
     );
-    return rows.map((row) {
-      final motivo = (row['motivo'] as String?)?.trim();
-      return PermisoHoy(
-        id: row['id'] as int,
-        motivo: (motivo == null || motivo.isEmpty) ? 'Permiso' : motivo,
-        horaInicio: _fmtHora(row['hora_inicio']),
-        horaFin: _fmtHora(row['hora_fin']),
-        horaFinDigitos: _horaFinDigitos(row['hora_fin']),
-        rango: _rangoFechas(row['fecha_inicio']?.toString(), row['fecha_fin']?.toString()),
-      );
-    }).toList();
+    return rows.map(_mapPermisoHoy).toList();
+  }
+
+  PermisoHoy _mapPermisoHoy(Map<String, Object?> row) {
+    final motivo = (row['motivo'] as String?)?.trim();
+    return PermisoHoy(
+      id: row['id'] as int,
+      motivo: (motivo == null || motivo.isEmpty) ? 'Permiso' : motivo,
+      horaInicio: _fmtHora(row['hora_inicio']),
+      horaFin: _fmtHora(row['hora_fin']),
+      horaFinDigitos: _horaFinDigitos(row['hora_fin']),
+      rango: _rangoFechas(row['fecha_inicio']?.toString(), row['fecha_fin']?.toString()),
+    );
+  }
+
+  /// Vigente ahora: `hora_inicio` ≤ ahora < `hora_fin` + 1 min.
+  bool _permisoEnRangoHorario(PermisoHoy p, DateTime now) {
+    if (p.horaInicio == '--:--' && p.horaFin == '--:--') return true;
+    final inicio = p.horaInicio == '--:--'
+        ? DateTime(now.year, now.month, now.day)
+        : _carbonHora(now, p.horaInicio);
+    final fin = p.horaFin == '--:--'
+        ? DateTime(now.year, now.month, now.day, 23, 59)
+        : _carbonHora(now, p.horaFin);
+    if (inicio == null || fin == null) return true;
+    final hasta = fin.add(const Duration(minutes: 1));
+    if (!fin.isBefore(inicio)) {
+      return !now.isBefore(inicio) && now.isBefore(hasta);
+    }
+    return !now.isBefore(inicio) || now.isBefore(hasta);
   }
 
   Future<Confirmacion> registrar({
@@ -642,8 +672,12 @@ class AccesoService {
     return entradaJ2.subtract(const Duration(minutes: _minutosAntesJornada2));
   }
 
-  Future<DateTime?> _limiteGraciaPermiso(int empleadoId, DateTime now) async {
-    final permisos = await _permisosParaGracia(empleadoId);
+  DateTime? _limiteGraciaPermiso(
+    List<PermisoHoy> permisos,
+    DateTime now, {
+    required String? horaEntrada,
+  }) {
+    final topeVentana = _carbonHora(now, horaEntrada)?.add(const Duration(hours: _horasDespuesEntrada));
     DateTime? limite;
     for (final p in permisos) {
       if (p.horaFin == '--:--') continue;
@@ -653,6 +687,12 @@ class AccesoService {
       if (now.isAfter(gracia)) continue;
       final inicio = p.horaInicio == '--:--' ? null : _carbonHora(now, p.horaInicio);
       if (inicio != null && now.isBefore(inicio)) continue;
+      // Un permiso de la tarde no reabre la entrada de la mañana.
+      if (topeVentana != null && inicio != null && inicio.isAfter(topeVentana)) continue;
+      if (topeVentana != null && inicio == null) {
+        final entrada = topeVentana.subtract(const Duration(hours: _horasDespuesEntrada));
+        if (fin.isBefore(entrada)) continue;
+      }
       if (limite == null || gracia.isAfter(limite)) limite = gracia;
     }
     return limite;
@@ -664,7 +704,7 @@ class AccesoService {
     if (users.isNotEmpty) ids.add(users.first['id'] as int);
     final porId = <int, PermisoHoy>{};
     for (final id in ids) {
-      for (final p in await permisosHoy(id)) {
+      for (final p in await _permisosAprobadosDelDia(id, DateTime.now())) {
         porId[p.id] = p;
       }
     }
