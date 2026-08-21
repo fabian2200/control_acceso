@@ -3,6 +3,8 @@
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EmpleadoController;
 use App\Http\Controllers\Admin\HorarioController;
+use App\Http\Controllers\Admin\LlegadaTardeController;
+use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\Admin\NovedadController;
 use Illuminate\Support\Facades\Route;
@@ -37,5 +39,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/novedades', [NovedadController::class, 'index'])->name('novedades.index');
         Route::post('/novedades/{novedad}/aprobar', [NovedadController::class, 'aprobar'])->name('novedades.aprobar');
         Route::post('/novedades/{novedad}/rechazar', [NovedadController::class, 'rechazar'])->name('novedades.rechazar');
+
+        Route::get('/logs', [LogController::class, 'index'])->name('logs.index');
+        Route::get('/logs/{empleado}', [LogController::class, 'show'])->name('logs.show');
+
+        Route::get('/llegadas-tarde', [LlegadaTardeController::class, 'index'])->name('llegadas-tarde.index');
+        Route::get('/llegadas-tarde/pdf', [LlegadaTardeController::class, 'pdf'])->name('llegadas-tarde.pdf');
     });
 });

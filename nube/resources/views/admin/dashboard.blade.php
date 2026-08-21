@@ -7,27 +7,39 @@
 @section('content')
 <div class="stat-grid">
     <article class="stat">
-        <span>Horarios</span>
-        <strong>{{ $totalHorarios }}</strong>
+        <div class="card-icon"><i class="fas fa-clock"></i></div>
+        <div class="kpi-body">
+            <span>Horarios</span>
+            <strong>{{ $totalHorarios }}</strong>
+        </div>
     </article>
     <article class="stat">
-        <span>Empleados activos</span>
-        <strong>{{ $empleadosActivos }}</strong>
+        <div class="card-icon"><i class="fas fa-users"></i></div>
+        <div class="kpi-body">
+            <span>Empleados activos</span>
+            <strong>{{ $empleadosActivos }}</strong>
+        </div>
     </article>
     <article class="stat">
-        <span>Con horario</span>
-        <strong>{{ $asignados }}</strong>
+        <div class="card-icon"><i class="fas fa-user-check"></i></div>
+        <div class="kpi-body">
+            <span>Con horario</span>
+            <strong>{{ $asignados }}</strong>
+        </div>
     </article>
     <article class="stat stat-warn">
-        <span>Sin horario</span>
-        <strong>{{ $sinHorario }}</strong>
+        <div class="card-icon"><i class="fas fa-user-times"></i></div>
+        <div class="kpi-body">
+            <span>Sin horario</span>
+            <strong>{{ $sinHorario }}</strong>
+        </div>
     </article>
 </div>
 
 <section class="panel">
     <div class="panel-head">
         <h2>Horarios creados</h2>
-        <a href="{{ route('admin.horarios.crear') }}" class="btn-primary">Nuevo horario</a>
+        <a href="{{ route('admin.horarios.crear') }}" class="btn-primary"><i class="fas fa-plus"></i> Nuevo horario</a>
     </div>
     @if ($horarios->isEmpty())
         <p class="empty">Aún no hay horarios. Crea el primero para asignarlo a los empleados.</p>
@@ -57,7 +69,7 @@
                         </td>
                         <td>{{ $horario->asignaciones_count }}</td>
                         <td class="td-right">
-                            <a href="{{ route('admin.horarios.editar', $horario) }}">Editar</a>
+                            <a href="{{ route('admin.horarios.editar', $horario) }}" class="btn-ghost btn-sm"><i class="fas fa-edit"></i> Editar</a>
                         </td>
                     </tr>
                 @endforeach

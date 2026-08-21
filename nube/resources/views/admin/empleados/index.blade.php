@@ -13,7 +13,7 @@
             <option value="asignados" @selected($filtro === 'asignados')>Con horario</option>
             <option value="sin_horario" @selected($filtro === 'sin_horario')>Sin horario</option>
         </select>
-        <button type="submit" class="btn-ghost">Filtrar</button>
+        <button type="submit" class="btn-ghost"><i class="fas fa-filter"></i> Filtrar</button>
     </form>
 
     @if ($empleados->isEmpty())
@@ -31,7 +31,7 @@
                         @endforeach
                     </select>
                 </label>
-                <button type="submit" class="btn-primary">Aplicar</button>
+                <button type="submit" class="btn-primary"><i class="fas fa-check"></i> Aplicar</button>
             </div>
         </form>
 
@@ -67,7 +67,7 @@
                                             </option>
                                         @endforeach
                                     </select>
-                                    <button type="submit" class="btn-ghost btn-sm">Guardar</button>
+                                    <button type="submit" class="btn-ghost btn-sm"><i class="fas fa-save"></i> Guardar</button>
                                 </form>
                             </td>
                         </tr>

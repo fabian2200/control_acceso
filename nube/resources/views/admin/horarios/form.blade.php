@@ -5,7 +5,7 @@
 @section('heading', $horario->exists ? 'Editar horario' : 'Nuevo horario')
 
 @section('actions')
-    <a href="{{ route('admin.horarios.index') }}" class="btn-ghost">Volver</a>
+    <a href="{{ route('admin.horarios.index') }}" class="btn-ghost"><i class="fas fa-arrow-left"></i> Volver</a>
 @endsection
 
 @section('content')
@@ -33,7 +33,7 @@
 
     <div class="days-head">
         <h2>Días de la semana</h2>
-        <button type="button" class="btn-ghost" id="copiarLunes">Copiar lunes a lun–vie</button>
+        <button type="button" class="btn-ghost" id="copiarLunes"><i class="fas fa-copy"></i> Copiar lunes a lun–vie</button>
     </div>
     <p class="muted days-hint">Jornada 1 es el primer bloque del día (p. ej. 08:00–15:00 o 08:00–12:00). Jornada 2 es opcional, para un segundo bloque. Cada marca tiene gabela en minutos. Vacío = descanso.</p>
 
@@ -72,8 +72,8 @@
     </div>
 
     <div class="form-actions">
-        <button type="submit" class="btn-primary">{{ $horario->exists ? 'Guardar cambios' : 'Crear horario' }}</button>
-        <a href="{{ route('admin.horarios.index') }}" class="btn-ghost">Cancelar</a>
+        <button type="submit" class="btn-primary"><i class="fas fa-save"></i> {{ $horario->exists ? 'Guardar cambios' : 'Crear horario' }}</button>
+        <a href="{{ route('admin.horarios.index') }}" class="btn-ghost"><i class="fas fa-times"></i> Cancelar</a>
     </div>
 </form>
 @endsection

@@ -14,7 +14,7 @@
             <option value="aprobada" @selected($estado === 'aprobada')>Aprobadas</option>
             <option value="rechazada" @selected($estado === 'rechazada')>Rechazadas</option>
         </select>
-        <button type="submit" class="btn-ghost">Filtrar</button>
+        <button type="submit" class="btn-ghost"><i class="fas fa-filter"></i> Filtrar</button>
     </form>
 
     @if ($novedades->isEmpty())
@@ -62,11 +62,11 @@
                                 @if ($novedad->aprobada === null)
                                     <form method="POST" action="{{ route('admin.novedades.aprobar', $novedad) }}" style="display:inline">
                                         @csrf
-                                        <button type="submit" class="btn-ghost btn-sm">Aprobar</button>
+                                        <button type="submit" class="btn-ghost btn-sm"><i class="fas fa-check"></i> Aprobar</button>
                                     </form>
                                     <form method="POST" action="{{ route('admin.novedades.rechazar', $novedad) }}" style="display:inline">
                                         @csrf
-                                        <button type="submit" class="btn-ghost btn-sm">Rechazar</button>
+                                        <button type="submit" class="btn-ghost btn-sm"><i class="fas fa-times"></i> Rechazar</button>
                                     </form>
                                 @endif
                             </td>
