@@ -140,12 +140,14 @@ class SyncUi {
     this.pendientes = 0,
     this.syncing = false,
     this.error,
+    this.ultimaSync,
   });
 
   final bool online;
   final int pendientes;
   final bool syncing;
   final String? error;
+  final DateTime? ultimaSync;
 
   String get etiquetaRed => online ? 'En línea' : 'Sin NUBE';
 
@@ -155,6 +157,16 @@ class SyncUi {
     if (pendientes > 0) return '$pendientes pendiente${pendientes == 1 ? '' : 's'}';
     if (online) return 'NUBE al día';
     return 'Local';
+  }
+
+  /// Ej: `20/08/2026 · 05:16 PM`
+  String get etiquetaUltimaSync {
+    final dt = ultimaSync;
+    if (dt == null) return 'Sin sync';
+    final local = HoraFmt.wall(dt);
+    final fecha =
+        '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
+    return '$fecha · ${HoraFmt.of(local)}';
   }
 }
 

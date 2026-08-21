@@ -90,13 +90,19 @@ class KioskController extends ChangeNotifier {
   }
 
   Future<void> tickSync() async {
-    syncUi = SyncUi(online: syncUi.online, pendientes: syncUi.pendientes, syncing: true);
+    syncUi = SyncUi(
+      online: syncUi.online,
+      pendientes: syncUi.pendientes,
+      syncing: true,
+      ultimaSync: syncUi.ultimaSync,
+    );
     notifyListeners();
     final result = await _sync.ejecutar();
     syncUi = SyncUi(
       online: result.online,
       pendientes: result.pendientes,
       error: result.error,
+      ultimaSync: result.ultimaSync ?? syncUi.ultimaSync,
     );
     notifyListeners();
   }
@@ -182,23 +188,23 @@ class KioskController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> identificarNovedad(String cedula) async {
+  /// Devuelve mensaje de error o `null` si avanzó al formulario.
+  Future<String?> identificarNovedad(String cedula) async {
     error = null;
     final digits = cedula.replaceAll(RegExp(r'\D'), '');
     if (digits.length < 5) {
-      error = 'Ingresa un número de identificación válido.';
+      busy = false;
       notifyListeners();
-      return;
+      return 'Ingresa un número de identificación válido.';
     }
     busy = true;
     notifyListeners();
     try {
       final found = await _acceso.identificar(digits);
       if (found == null) {
-        error = 'Número de identificación no reconocido. Intenta de nuevo.';
         busy = false;
         notifyListeners();
-        return;
+        return 'Número de identificación no reconocido. Intenta de nuevo.';
       }
       final ctx = await _novedades.resolverContexto(found.id);
       empleado = found;
@@ -207,14 +213,20 @@ class KioskController extends ChangeNotifier {
       novedadQuien = null;
       novedadQuienDesdeLista = false;
       screen = KioskScreen.novedadForm;
+      busy = false;
+      notifyListeners();
+      return null;
     } on StateError catch (e) {
-      error = e.message.isNotEmpty ? e.message : 'No se pudo preparar la novedad.';
-    } catch (e) {
-      error = 'No se pudo preparar la novedad. Intenta de nuevo.';
-      debugPrint('identificarNovedad: $e');
+      final msg = e.message.trim();
+      busy = false;
+      notifyListeners();
+      return msg.isNotEmpty ? msg : 'No se pudo preparar la novedad.';
+    } catch (e, st) {
+      debugPrint('identificarNovedad: $e\n$st');
+      busy = false;
+      notifyListeners();
+      return 'No se pudo preparar la novedad. Intenta de nuevo.';
     }
-    busy = false;
-    notifyListeners();
   }
 
   void elegirMotivoNovedad(String motivo) {
@@ -226,18 +238,19 @@ class KioskController extends ChangeNotifier {
   }
 
   /// Paso 1: si no es diligencia guarda; si es diligencia pasa a quién autoriza.
-  Future<void> continuarNovedadMotivo() async {
+  /// Devuelve mensaje de error o `null`.
+  Future<String?> continuarNovedadMotivo() async {
     final motivo = novedadMotivo;
-    if (motivo == null || motivo.isEmpty || busy) return;
+    if (motivo == null || motivo.isEmpty || busy) return null;
     if (motivo == NovedadMotivos.diligencia) {
       novedadQuien = null;
       novedadQuienDesdeLista = false;
       error = null;
       screen = KioskScreen.novedadQuien;
       notifyListeners();
-      return;
+      return null;
     }
-    await guardarNovedad();
+    return guardarNovedad();
   }
 
   Future<void> elegirAutorizaNovedad(String quien) async {
@@ -264,10 +277,11 @@ class KioskController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> guardarNovedad() async {
+  /// Devuelve mensaje de error o `null` si guardó bien.
+  Future<String?> guardarNovedad() async {
     final ctx = novedadContexto;
     final motivo = novedadMotivo;
-    if (ctx == null || motivo == null || busy) return;
+    if (ctx == null || motivo == null || busy) return null;
     busy = true;
     error = null;
     notifyListeners();
@@ -280,14 +294,17 @@ class KioskController extends ChangeNotifier {
       homeNotice = 'Novedad registrada · Jornada ${ctx.jornada}';
       reset();
       unawaited(tickSync());
-      return;
+      return null;
     } on StateError catch (e) {
-      error = e.message;
+      busy = false;
+      notifyListeners();
+      final msg = e.message.trim();
+      return msg.isNotEmpty ? msg : 'No se pudo guardar la novedad.';
     } catch (_) {
-      error = 'No se pudo guardar la novedad.';
+      busy = false;
+      notifyListeners();
+      return 'No se pudo guardar la novedad.';
     }
-    busy = false;
-    notifyListeners();
   }
 
   Future<void> identificar(String cedula) async {
@@ -720,7 +737,7 @@ class _StatusBar extends StatelessWidget {
           Text(ui.etiquetaSync, style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 15, fontWeight: FontWeight.w500)),
           Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 22), color: const Color(0x24FFFFFF)),
           Text(
-            'Terminal ${AppConfig.terminalCodigo}  •  v2.4',
+            'Terminal ${AppConfig.terminalCodigo}  •  ${ui.etiquetaUltimaSync}  •  v2.4',
             style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14, letterSpacing: 0.3),
           ),
         ],
@@ -809,7 +826,7 @@ class _CedulaScreenState extends State<CedulaScreen> {
                   Center(
                     child: Image.asset('assets/logo.png', height: 192, filterQuality: FilterQuality.high),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 28),
                     const Text.rich(
                     TextSpan(
                       children: [
@@ -831,36 +848,53 @@ class _CedulaScreenState extends State<CedulaScreen> {
                     decoration: BoxDecoration(color: KioskColors.green, borderRadius: BorderRadius.circular(4)),
                   ),
                   const SizedBox(height: 22),
-                  const Divider(color: KioskColors.line, height: 1),
-                  const SizedBox(height: 22),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.calendar_today_outlined, size: 36, color: KioskColors.green),
-                      const SizedBox(width: 10),
-                      Text(
-                        DateFormat("d 'de' MMMM 'de' yyyy", 'es').format(now),
-                        style: const TextStyle(fontSize: 36, color: KioskColors.muted, fontWeight: FontWeight.w500),
-                      ),
-                    ],
+                  Container(
+                    width: 500,
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                    decoration: BoxDecoration(
+                      color: KioskColors.green.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: KioskColors.green.withValues(alpha: 0.5), width: 1),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, size: 60, color: KioskColors.green),
+                        const SizedBox(width: 20),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('FECHA', style: TextStyle(fontSize: 17, color: KioskColors.muted, fontWeight: FontWeight.w500)),
+                            Text(DateFormat("d 'de' MMMM 'de' yyyy", 'es').format(now), style: TextStyle(fontSize: 30, color: KioskColors.muted, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.schedule, size: 56, color: KioskColors.green),
-                      const SizedBox(width: 10),
-                      Text(
-                        HoraFmt.of(now, seconds: true),
-                        style: const TextStyle(
-                          fontSize: 66,
-                          fontWeight: FontWeight.w800,
-                          color: KioskColors.ink,
-                          letterSpacing: 0.4,
-                          fontFeatures: [FontFeature.tabularFigures()],
+                   Container(
+                    width: 500,
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                    decoration: BoxDecoration(
+                      color: KioskColors.green.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: KioskColors.green.withValues(alpha: 0.5), width: 1),
+                    ),
+                    child:
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.schedule, size: 60, color: KioskColors.green),
+                        const SizedBox(width: 20),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('HORA ACTUAL', style: TextStyle(fontSize: 17, color: KioskColors.muted, fontWeight: FontWeight.w500)),
+                            Text(HoraFmt.of(now, seconds: true), style: TextStyle(fontSize: 45, color: KioskColors.muted, fontWeight: FontWeight.w500)),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 14),
                   const Spacer(),

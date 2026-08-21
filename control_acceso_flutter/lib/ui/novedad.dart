@@ -20,7 +20,6 @@ class _NovedadCedulaScreenState extends State<NovedadCedulaScreen> {
   Widget build(BuildContext context) {
     final empty = cedula.isEmpty;
     final c = widget.controller;
-    final width = MediaQuery.of(context).size.width;
     return Padding(
       padding: const EdgeInsets.fromLTRB(48, 28, 48, 28),
       child: Column(
@@ -28,112 +27,105 @@ class _NovedadCedulaScreenState extends State<NovedadCedulaScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Eyebrow('Novedades', fontSize: 24),
-                  const Text('Registrar novedad', style: TextStyle(fontSize: 36, fontWeight: FontWeight.w600, color: KioskColors.ink)),
-                ],
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Eyebrow('Novedades', fontSize: 24),
+                    Text(
+                      'Registrar novedad',
+                      style: TextStyle(fontSize: 36, fontWeight: FontWeight.w600, color: KioskColors.ink),
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
-              if (c.error != null) AlertErr(c.error!),
               _VolverNovedad(onTap: c.cancelarNovedad),
             ],
           ),
-          // Área principal
+          const SizedBox(height: 18),
           Expanded(
-            child: Row(
+            child: Column(
               children: [
-                SizedBox(
-                  width: width ,
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              height: 86,
-                              alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF0FDF4),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: KioskColors.green, width: 1.5),
-                              ),
-                              child: Text(
-                                empty ? 'Número de identificación' : cedula,
-                                style: TextStyle(
-                                  fontSize: empty ? 24 : 34,
-                                  fontWeight: empty ? FontWeight.w400 : FontWeight.w600,
-                                  color: empty ? KioskColors.faint : KioskColors.ink,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          SizedBox(
-                            height: 86,
-                            width: 106,
-                            child: Material(
-                              color: KioskColors.amarillo.withValues(alpha: 0.2),
-                              elevation: 0,
-                              shadowColor: const Color(0x220F172A),
-                              borderRadius: BorderRadius.circular(12),
-                              child: InkWell(
-                                onTap: () {
-                                  if (cedula.isEmpty) return;
-                                  setState(() {
-                                    cedula = cedula.substring(0, cedula.length - 1);
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: KioskColors.amarillo),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(Icons.backspace_outlined, color: KioskColors.amarillo, size: 28),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Teclado centrado
-                      Expanded(
-                        child: Center(
-                          child: KioskKeypad(
-                            compact: true,
-                            onAnyKey: c.limpiarError,
-                            onDigit: (d) {
-                              if (cedula.length >= 12) return;
-                              setState(() {
-                                cedula += d;
-                              });
-                            },
-                            onBack: () {
-                              if (cedula.isEmpty) return;
-                              setState(() {
-                                cedula = cedula.substring(0, cedula.length - 1);
-                              });
-                            },
-                            onClear: () {
-                              setState(() {
-                                cedula = '';
-                              });
-                            },
-                            onOk: () {
-                              c.identificarNovedad(cedula);
-                            },
-                            okEnabled: cedula.length >= 5 && !c.busy,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 86,
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: KioskColors.green, width: 1.5),
+                        ),
+                        child: Text(
+                          empty ? 'Número de identificación' : cedula,
+                          style: TextStyle(
+                            fontSize: empty ? 24 : 34,
+                            fontWeight: empty ? FontWeight.w400 : FontWeight.w600,
+                            color: empty ? KioskColors.faint : KioskColors.ink,
                           ),
                         ),
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      height: 86,
+                      width: 106,
+                      child: Material(
+                        color: KioskColors.amarillo.withValues(alpha: 0.2),
+                        elevation: 0,
+                        shadowColor: const Color(0x220F172A),
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: () {
+                            if (cedula.isEmpty) return;
+                            setState(() {
+                              cedula = cedula.substring(0, cedula.length - 1);
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: KioskColors.amarillo),
+                            ),
+                            child: const Center(
+                              child: Icon(Icons.backspace_outlined, color: KioskColors.amarillo, size: 28),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: Center(
+                    child: KioskKeypad(
+                      compact: true,
+                      onAnyKey: c.limpiarError,
+                      onDigit: (d) {
+                        if (cedula.length >= 12) return;
+                        setState(() => cedula += d);
+                      },
+                      onBack: () {
+                        if (cedula.isEmpty) return;
+                        setState(() => cedula = cedula.substring(0, cedula.length - 1));
+                      },
+                      onClear: () => setState(() => cedula = ''),
+                      onOk: () async {
+                        final msg = await c.identificarNovedad(cedula);
+                        if (!context.mounted || msg == null) return;
+                        await showKioskDialog(
+                          context,
+                          title: 'No se puede continuar',
+                          message: msg,
+                          icon: Icons.event_busy_outlined,
+                        );
+                      },
+                      okEnabled: cedula.length >= 5 && !c.busy,
+                    ),
                   ),
                 ),
               ],
@@ -212,10 +204,6 @@ class NovedadFormScreen extends StatelessWidget {
               },
             ),
           ),
-          if (controller.error != null) ...[
-            const SizedBox(height: 10),
-            AlertErr(controller.error!),
-          ],
           const SizedBox(height: 14),
           Row(
             children: [
@@ -225,9 +213,21 @@ class NovedadFormScreen extends StatelessWidget {
                 iconAlignment: IconAlignment.end,
                 label: Text(esDiligencia ? 'Siguiente' : 'Registrar novedad', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
                 icon: esDiligencia ? const Icon(Icons.arrow_forward_outlined, color: Colors.white, size: 28) : const Icon(Icons.save_alt_outlined, color: Colors.white, size: 28),
-                onPressed: controller.continuarNovedadMotivo,
+                onPressed: !puedeContinuar
+                    ? null
+                    : () async {
+                        final msg = await controller.continuarNovedadMotivo();
+                        if (!context.mounted || msg == null) return;
+                        await showKioskDialog(
+                          context,
+                          title: 'No se pudo registrar',
+                          message: msg,
+                          icon: Icons.error_outline,
+                        );
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: puedeContinuar ? KioskColors.azul : KioskColors.muted,
+                  disabledBackgroundColor: KioskColors.muted,
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -319,10 +319,6 @@ class NovedadQuienScreen extends StatelessWidget {
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: KioskColors.green),
               ),
             ),
-          if (controller.error != null) ...[
-            const SizedBox(height: 8),
-            AlertErr(controller.error!),
-          ],
           const SizedBox(height: 10),
           Row(
             children: [
@@ -330,11 +326,23 @@ class NovedadQuienScreen extends StatelessWidget {
               const Spacer(),
               ElevatedButton.icon(
                 iconAlignment: IconAlignment.end,
-                label: Text('Registrar novedad', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
+                label: const Text('Registrar novedad', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
                 icon: const Icon(Icons.save_alt_outlined, color: Colors.white, size: 28),
-                onPressed: controller.guardarNovedad,
+                onPressed: !puedeGuardar
+                    ? null
+                    : () async {
+                        final msg = await controller.guardarNovedad();
+                        if (!context.mounted || msg == null) return;
+                        await showKioskDialog(
+                          context,
+                          title: 'No se pudo registrar',
+                          message: msg,
+                          icon: Icons.error_outline,
+                        );
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: puedeGuardar ? KioskColors.azul : KioskColors.muted,
+                  disabledBackgroundColor: KioskColors.muted,
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

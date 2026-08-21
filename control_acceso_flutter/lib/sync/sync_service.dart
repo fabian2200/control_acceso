@@ -11,12 +11,14 @@ class SyncResult {
     required this.online,
     this.error,
     this.pendientes = 0,
+    this.ultimaSync,
   });
 
   final bool ok;
   final bool online;
   final String? error;
   final int pendientes;
+  final DateTime? ultimaSync;
 }
 
 class AccesoSync {
@@ -66,7 +68,13 @@ class AccesoSync {
   Future<SyncResult> ejecutar() async {
     final online = await hayInternet();
     if (!online) {
-      return SyncResult(ok: false, online: false, error: 'sin_red', pendientes: await pendientes());
+      return SyncResult(
+        ok: false,
+        online: false,
+        error: 'sin_red',
+        pendientes: await pendientes(),
+        ultimaSync: await _leerUltimaSync(),
+      );
     }
 
     try {
@@ -76,15 +84,33 @@ class AccesoSync {
       await _pullNovedades();
       await recortarMarcasLocales();
       await recortarNovedadesMesAnterior();
-      return SyncResult(ok: true, online: true, pendientes: await pendientes());
+      final ahora = DateTime.now();
+      await _guardarUltimaSync(ahora);
+      return SyncResult(
+        ok: true,
+        online: true,
+        pendientes: await pendientes(),
+        ultimaSync: ahora,
+      );
     } catch (e) {
       return SyncResult(
         ok: false,
         online: true,
         error: e.toString(),
         pendientes: await pendientes(),
+        ultimaSync: await _leerUltimaSync(),
       );
     }
+  }
+
+  Future<DateTime?> _leerUltimaSync() async {
+    final raw = await _db.setting('ultima_sync');
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  Future<void> _guardarUltimaSync(DateTime cuando) async {
+    await _db.setSetting('ultima_sync', cuando.toIso8601String());
   }
 
   Future<void> _pullCatalogo() async {
@@ -158,16 +184,16 @@ class AccesoSync {
 
   Future<void> recortarMarcasLocales() async {
     final db = await _db.database;
-    final hoy = _hoy();
+    final inicioMes = _inicioMes();
     await db.delete(
       'acceso_registros',
       where: 'sincronizado = 1 AND fecha < ?',
-      whereArgs: [hoy],
+      whereArgs: [inicioMes],
     );
     await db.delete(
       'acceso_salidas_ocasionales',
       where: "sincronizado = 1 AND estado != 'abierta' AND date(salida_en) < ?",
-      whereArgs: [hoy],
+      whereArgs: [inicioMes],
     );
   }
 
@@ -278,11 +304,8 @@ class AccesoSync {
   }
 
   Future<void> recortarNovedadesMesAnterior() async {
-    final now = DateTime.now();
-    final inicioMes =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-01';
     final db = await _db.database;
-    await db.delete('acceso_novedades', where: 'fecha < ?', whereArgs: [inicioMes]);
+    await db.delete('acceso_novedades', where: 'fecha < ?', whereArgs: [_inicioMes()]);
   }
 
   Map<String, dynamic> _payloadNovedad(Map<String, Object?> row) {
@@ -362,8 +385,8 @@ class AccesoSync {
     return out;
   }
 
-  String _hoy() {
+  String _inicioMes() {
     final n = DateTime.now();
-    return '${n.year.toString().padLeft(4, '0')}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
+    return '${n.year.toString().padLeft(4, '0')}-${n.month.toString().padLeft(2, '0')}-01';
   }
 }
