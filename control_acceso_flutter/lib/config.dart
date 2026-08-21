@@ -5,7 +5,7 @@ class AppConfig {
 
   static const defaultApiUrl = String.fromEnvironment(
     'ACCESO_API_URL',
-    defaultValue: 'http://192.168.1.66:8001',
+    defaultValue: 'https://ingeer.co/nube/public',
   );
   static const apiToken = String.fromEnvironment(
     'ACCESO_API_TOKEN',
