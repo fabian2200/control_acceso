@@ -81,6 +81,7 @@ class KioskController extends ChangeNotifier {
   String? novedadMotivo;
   String? novedadQuien;
   bool novedadQuienDesdeLista = false;
+  bool confirmDesdeNovedad = false;
 
   Future<void> start() async {
     apiUrl = await AccesoDb.instance.setting('api_url') ?? AppConfig.defaultApiUrl;
@@ -146,6 +147,7 @@ class KioskController extends ChangeNotifier {
     novedadMotivo = null;
     novedadQuien = null;
     novedadQuienDesdeLista = false;
+    confirmDesdeNovedad = false;
     notifyListeners();
   }
 
@@ -291,8 +293,23 @@ class KioskController extends ChangeNotifier {
         motivo: motivo,
         quienAutoriza: novedadQuien,
       );
-      homeNotice = 'Novedad registrada · Jornada ${ctx.jornada}';
-      reset();
+      final acciones = <String>['Motivo: $motivo', 'Jornada ${ctx.jornada}'];
+      final quien = (novedadQuien ?? '').trim();
+      if (quien.isNotEmpty) acciones.add('Autoriza: $quien');
+      confirm = Confirmacion(
+        title: 'Novedad registrada',
+        time: HoraFmt.of(DateTime.now()),
+        color: ColorData.green,
+        pillText: 'Pendiente de revisión',
+        pillBg: const Color(0xFFECFDF5),
+        pillFg: const Color(0xFF166534),
+        meta: 'Jornada ${ctx.jornada}',
+        acciones: acciones,
+      );
+      confirmDesdeNovedad = true;
+      busy = false;
+      screen = KioskScreen.confirmacion;
+      notifyListeners();
       unawaited(tickSync());
       return null;
     } on StateError catch (e) {
@@ -305,6 +322,26 @@ class KioskController extends ChangeNotifier {
       notifyListeners();
       return 'No se pudo guardar la novedad.';
     }
+  }
+
+  /// Tras confirmar novedad: ir a Entrada/Salida del mismo empleado.
+  Future<void> continuarTrasNovedad() async {
+    if (empleado == null) return reset();
+    novedadContexto = null;
+    novedadMotivo = null;
+    novedadQuien = null;
+    novedadQuienDesdeLista = false;
+    confirmDesdeNovedad = false;
+    confirm = null;
+    homeNotice = null;
+    error = null;
+    openExit = await _acceso.salidaAbierta(empleado!.id);
+    if (openExit != null) {
+      screen = KioskScreen.regreso;
+      notifyListeners();
+      return;
+    }
+    await _cargarAccion();
   }
 
   Future<void> identificar(String cedula) async {
@@ -2129,15 +2166,20 @@ class _ConfirmacionScreenState extends State<ConfirmacionScreen> {
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(seconds: 4), () {
-      if (mounted) widget.controller.reset();
-    });
+    if (!widget.controller.confirmDesdeNovedad) {
+      Future<void>.delayed(const Duration(seconds: 4), () {
+        if (mounted && !widget.controller.confirmDesdeNovedad) {
+          widget.controller.reset();
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final c = widget.controller.confirm!;
     final emp = widget.controller.empleado!;
+    final desdeNovedad = widget.controller.confirmDesdeNovedad;
     return Center(
       child: SizedBox(
         width: 960,
@@ -2182,10 +2224,30 @@ class _ConfirmacionScreenState extends State<ConfirmacionScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Registro guardado en esta tablet. Se enviará a la NUBE cuando haya conexión.',
-                    style: TextStyle(fontSize: 18, color: KioskColors.faint),
+                  Text(
+                    desdeNovedad
+                        ? 'Novedad guardada en esta tablet. Se enviará a la NUBE cuando haya conexión.'
+                        : 'Registro guardado en esta tablet. Se enviará a la NUBE cuando haya conexión.',
+                    style: const TextStyle(fontSize: 18, color: KioskColors.faint),
                   ),
+                  if (desdeNovedad) ...[
+                    const SizedBox(height: 28),
+                    ElevatedButton.icon(
+                      iconAlignment: IconAlignment.end,
+                      onPressed: () => widget.controller.continuarTrasNovedad(),
+                      icon: const Icon(Icons.arrow_forward_outlined, color: Colors.white, size: 28),
+                      label: const Text(
+                        'Continuar',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(800, 60),
+                        backgroundColor: KioskColors.azul,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

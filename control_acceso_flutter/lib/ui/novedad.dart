@@ -212,7 +212,7 @@ class NovedadFormScreen extends StatelessWidget {
               ElevatedButton.icon(
                 iconAlignment: IconAlignment.end,
                 label: Text(esDiligencia ? 'Siguiente' : 'Registrar novedad', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
-                icon: esDiligencia ? const Icon(Icons.arrow_forward_outlined, color: Colors.white, size: 28) : const Icon(Icons.save_alt_outlined, color: Colors.white, size: 28),
+                icon: esDiligencia ? const Icon(Icons.arrow_forward_outlined, color: Colors.white, size: 28) : const Icon(Icons.save, color: Colors.white, size: 28),
                 onPressed: !puedeContinuar
                     ? null
                     : () async {
@@ -327,7 +327,7 @@ class NovedadQuienScreen extends StatelessWidget {
               ElevatedButton.icon(
                 iconAlignment: IconAlignment.end,
                 label: const Text('Registrar novedad', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
-                icon: const Icon(Icons.save_alt_outlined, color: Colors.white, size: 28),
+                icon: const Icon(Icons.save, color: Colors.white, size: 28),
                 onPressed: !puedeGuardar
                     ? null
                     : () async {
