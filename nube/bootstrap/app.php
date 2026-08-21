@@ -17,6 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'terminal' => \App\Http\Middleware\AuthenticateTerminal::class,
         ]);
 
+        // Tablet kiosko (Flutter) → API Bearer sin cookie/sesión: no exigir CSRF.
+        $middleware->validateCsrfTokens(except: [
+            'api/health',
+            'api/sync/catalogo',
+            'api/sync/marcas',
+            'api/sync/logs',
+            'api/sync/novedades',
+        ]);
+
         $middleware->redirectGuestsTo(fn (Request $request) => route('admin.login'));
         $middleware->redirectUsersTo(fn (Request $request) => route('admin.dashboard'));
     })
