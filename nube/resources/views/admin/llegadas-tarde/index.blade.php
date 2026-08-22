@@ -6,6 +6,7 @@
 
 @section('actions')
     <a href="{{ route('admin.llegadas-tarde.pdf', request()->query()) }}" class="btn-primary"><i class="fas fa-file-pdf"></i> Exportar PDF</a>
+    <a href="{{ route('admin.llegadas-tarde.excel', request()->only(['anio', 'mes'])) }}" class="btn-ghost btn-success"><i class="fas fa-file-excel"></i> Exportar Excel</a>
 @endsection
 
 @section('content')

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\LlegadaTardeExcelExporter;
 use App\Services\LlegadaTardeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LlegadaTardeController extends Controller
 {
@@ -36,6 +38,18 @@ class LlegadaTardeController extends Controller
         $archivo = 'llegadas-tarde-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.pdf';
 
         return $pdf->download($archivo);
+    }
+
+    public function excel(Request $request, LlegadaTardeService $service, LlegadaTardeExcelExporter $exporter): StreamedResponse
+    {
+        $ahora = now('America/Bogota');
+
+        return $exporter->download($service->informe(
+            (int) $request->query('anio', $ahora->year),
+            (int) $request->query('mes', $ahora->month),
+            null,
+            'todos',
+        ));
     }
 
     private function informe(Request $request, LlegadaTardeService $service): array

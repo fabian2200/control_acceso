@@ -45,5 +45,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('/llegadas-tarde', [LlegadaTardeController::class, 'index'])->name('llegadas-tarde.index');
         Route::get('/llegadas-tarde/pdf', [LlegadaTardeController::class, 'pdf'])->name('llegadas-tarde.pdf');
+        Route::get('/llegadas-tarde/excel', [LlegadaTardeController::class, 'excel'])->name('llegadas-tarde.excel');
     });
 });
