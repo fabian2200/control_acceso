@@ -34,7 +34,7 @@ class LlegadaTardeService
      *   mes:int,
      *   empleado_id:?int,
      *   respaldo:string,
-     *   kpis:array{total:int,justificadas:int,sin:int,incompletas:int,minutos:int,empleados:int},
+     *   kpis:array{total:int,temprano:int,justificadas:int,sin:int,incompletas:int,minutos:int,empleados:int},
      *   filas:list<array<string,mixed>>,
      *   empleados:Collection,
      *   anios:list<int>,
@@ -45,7 +45,7 @@ class LlegadaTardeService
     {
         $anio = max(2000, $anio);
         $mes = min(12, max(1, $mes));
-        $respaldo = in_array($respaldo, ['todos', 'sin', 'novedad', 'permiso', 'incompleta'], true) ? $respaldo : 'todos';
+        $respaldo = in_array($respaldo, ['todos', 'sin', 'novedad', 'permiso', 'incompleta', 'temprano'], true) ? $respaldo : 'todos';
 
         $inicio = Carbon::create($anio, $mes, 1, 0, 0, 0, 'America/Bogota')->startOfMonth();
         $fin = $inicio->copy()->endOfMonth();
@@ -62,7 +62,7 @@ class LlegadaTardeService
         $empleadoIds = $empleados->pluck('id');
 
         $entradas = AccesoRegistro::query()
-            ->with(['empleado.cargoRel', 'empleado.user', 'empleado.asignacionHorario.horario', 'horario.items'])
+            ->with(['empleado.cargoRel', 'empleado.user', 'empleado.asignacionHorario.horario.items', 'horario.items'])
             ->where('tipo', 'entrada')
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
@@ -82,8 +82,25 @@ class LlegadaTardeService
             return $registro->empleado_id.'|'.$this->fechaCarbon($registro->fecha)->toDateString();
         });
 
+        $salidasTemprano = AccesoRegistro::query()
+            ->with(['empleado.cargoRel', 'empleado.user', 'empleado.asignacionHorario.horario.items', 'horario.items'])
+            ->where('tipo', 'salida')
+            ->where('salio_temprano', '>', 0)
+            ->where(function ($qb) {
+                $qb->whereNull('salida_ocasional_id')->orWhere('salida_ocasional_id', 0);
+            })
+            ->whereDate('fecha', '>=', $inicio->toDateString())
+            ->whereDate('fecha', '<=', $fin->toDateString())
+            ->when($empleadoId, fn ($qb) => $qb->where('empleado_id', $empleadoId))
+            ->orderBy('fecha')
+            ->orderBy('hora')
+            ->get();
+
         $filas = [];
         foreach ($entradas->where('llego_tarde', '>', 0) as $registro) {
+            $filas[] = $this->armarFila($registro, $novedades, $permisos);
+        }
+        foreach ($salidasTemprano as $registro) {
             $filas[] = $this->armarFila($registro, $novedades, $permisos);
         }
 
@@ -101,19 +118,33 @@ class LlegadaTardeService
             if ($n !== 0) {
                 return $n;
             }
+            $j = ((int) $a['jornada']) <=> ((int) $b['jornada']);
+            if ($j !== 0) {
+                return $j;
+            }
+            $orden = ['tarde' => 0, 'incompleta' => 1, 'temprano' => 2];
 
-            return ((int) $a['jornada']) <=> ((int) $b['jornada']);
+            return ($orden[$a['tipo'] ?? 'tarde'] ?? 9) <=> ($orden[$b['tipo'] ?? 'tarde'] ?? 9);
         });
 
         $filas = array_values(array_filter($filas, function (array $fila) use ($respaldo) {
-            return $respaldo === 'todos' || $fila['respaldo'] === $respaldo;
+            if ($respaldo === 'todos') {
+                return true;
+            }
+            if ($respaldo === 'temprano') {
+                return ($fila['tipo'] ?? '') === 'temprano';
+            }
+
+            return $fila['respaldo'] === $respaldo;
         }));
 
-        $tardes = array_filter($filas, fn ($f) => ($f['tipo'] ?? 'tarde') !== 'incompleta');
+        $tardes = array_filter($filas, fn ($f) => ($f['tipo'] ?? '') === 'tarde');
+        $tempranos = array_filter($filas, fn ($f) => ($f['tipo'] ?? '') === 'temprano');
         $incompletas = array_filter($filas, fn ($f) => ($f['tipo'] ?? '') === 'incompleta');
-        $minutos = (int) array_sum(array_column($tardes, 'minutos'));
-        $justificadas = count(array_filter($tardes, fn ($f) => in_array($f['respaldo'], ['novedad', 'permiso'], true)));
-        $sin = count(array_filter($tardes, fn ($f) => $f['respaldo'] === 'sin'));
+        $incidencias = array_merge($tardes, $tempranos);
+        $minutos = (int) array_sum(array_column($incidencias, 'minutos'));
+        $justificadas = count(array_filter($incidencias, fn ($f) => in_array($f['respaldo'], ['novedad', 'permiso'], true)));
+        $sin = count(array_filter($incidencias, fn ($f) => $f['respaldo'] === 'sin'));
         $empleadosUnicos = count(array_unique(array_column($filas, 'empleado_id')));
 
         return [
@@ -123,6 +154,7 @@ class LlegadaTardeService
             'respaldo' => $respaldo,
             'kpis' => [
                 'total' => count($tardes),
+                'temprano' => count($tempranos),
                 'justificadas' => $justificadas,
                 'sin' => $sin,
                 'incompletas' => count($incompletas),
@@ -188,13 +220,15 @@ class LlegadaTardeService
 
         $respaldo = $novedad ? 'novedad' : ($permiso ? 'permiso' : 'sin');
         $motivo = $novedad?->motivo ?? ($permiso ? $permiso->motivoResumen(80) : null);
-        $entrada = $this->hhmm($registro->hora_esperada);
+        $esperada = $this->hhmm($registro->hora_esperada);
         $marco = $this->hhmm($registro->hora);
-        $minutos = (int) $registro->llego_tarde;
+        $esSalida = $registro->tipo === 'salida';
+        $minutos = $esSalida ? (int) $registro->salio_temprano : (int) $registro->llego_tarde;
+        $tipo = $esSalida ? 'temprano' : 'tarde';
 
         return [
             'id' => $registro->id,
-            'tipo' => 'tarde',
+            'tipo' => $tipo,
             'empleado_id' => $registro->empleado_id,
             'nombre' => $empleado?->nombre_completo ?: 'Empleado',
             'identificacion' => $empleado?->identificacion ?? '',
@@ -205,10 +239,11 @@ class LlegadaTardeService
             'fecha' => $fecha,
             'dia_label' => $this->diaCorto($fecha),
             'jornada' => $jornada,
-            'entrada' => $entrada,
+            'hora_label' => $esSalida ? 'Debía salir' : 'Debía entrar',
+            'entrada' => $esperada,
             'marco' => $marco,
             'minutos' => $minutos,
-            'tarde_label' => self::minutosLabel($minutos),
+            'tarde_label' => $esSalida ? self::minutosLabel($minutos).' antes' : self::minutosLabel($minutos),
             'respaldo' => $respaldo,
             'respaldo_label' => match ($respaldo) {
                 'novedad' => 'Novedad',
@@ -216,20 +251,25 @@ class LlegadaTardeService
                 default => 'Sin justificar',
             },
             'motivo' => $motivo,
-            'titulo_detalle' => match ($respaldo) {
-                'novedad' => 'NOVEDAD',
-                'permiso' => 'PERMISO',
+            'titulo_detalle' => match (true) {
+                $esSalida && $respaldo === 'sin' => 'SALIDA TEMPRANO',
+                $respaldo === 'novedad' => 'NOVEDAD',
+                $respaldo === 'permiso' => 'PERMISO',
                 default => 'SIN RESPALDO',
             },
             'mensaje' => match ($respaldo) {
                 'novedad' => ($motivo ?: 'Novedad').' · jornada '.$jornada.($novedad?->quien_autoriza ? ' · autoriza '.$novedad->quien_autoriza : ''),
                 'permiso' => ($motivo ?: 'Permiso aprobado').' · jornada '.$jornada,
-                default => 'No hay permiso ni novedad para esta jornada',
+                default => $esSalida
+                    ? 'Salió antes de la hora de salida de la jornada '.$jornada
+                    : 'No hay permiso ni novedad para esta jornada',
             },
             'pie' => match ($respaldo) {
                 'novedad' => 'Hay novedad pendiente o aprobada en el kiosko para esta jornada.',
                 'permiso' => 'Hay un permiso aprobado de Workboard que cubre esta jornada.',
-                default => 'No se encontró permiso aprobado ni novedad en el kiosko para este horario. Conviene verificar con el empleado.',
+                default => $esSalida
+                    ? 'No hay permiso ni novedad que cubra esta salida anticipada. No está ligada a una salida ocasional.'
+                    : 'No se encontró permiso aprobado ni novedad en el kiosko para este horario. Conviene verificar con el empleado.',
             },
         ];
     }
@@ -336,6 +376,7 @@ class LlegadaTardeService
             'fecha' => $fecha,
             'dia_label' => $this->diaCorto($fecha),
             'jornada' => $jornada,
+            'hora_label' => 'Debía entrar',
             'entrada' => $entrada,
             'marco' => '—',
             'minutos' => 0,
@@ -418,7 +459,8 @@ class LlegadaTardeService
 
     private function itemDelDia(AccesoRegistro $registro, Carbon $fecha): ?AccesoHorarioItem
     {
-        $items = $registro->horario?->items;
+        $items = $registro->horario?->items
+            ?? $registro->empleado?->asignacionHorario?->horario?->items;
         if (! $items) {
             return null;
         }
@@ -429,9 +471,10 @@ class LlegadaTardeService
     private function inferirJornada(AccesoRegistro $registro, ?AccesoHorarioItem $item): int
     {
         $esperada = $this->mins($registro->hora_esperada);
+        $prefijo = $registro->tipo === 'salida' ? 'salida_jornada_' : 'entrada_jornada_';
         if ($item && $esperada !== null) {
-            $e1 = $this->mins($item->entrada_jornada_1);
-            $e2 = $this->mins($item->entrada_jornada_2);
+            $e1 = $this->mins($item->{$prefijo.'1'});
+            $e2 = $this->mins($item->{$prefijo.'2'});
             if ($e2 !== null && $e1 !== null) {
                 return abs($esperada - $e2) < abs($esperada - $e1) ? 2 : 1;
             }
@@ -441,7 +484,8 @@ class LlegadaTardeService
         }
 
         $novedadHora = $this->mins($registro->hora_esperada);
-        if ($novedadHora !== null && $novedadHora >= 12 * 60 && $item?->entrada_jornada_2) {
+        $slot2 = $item?->{$prefijo.'2'};
+        if ($novedadHora !== null && $novedadHora >= 12 * 60 && $slot2) {
             return 2;
         }
 

@@ -17,7 +17,7 @@ class LlegadaTardeExcelExporter
      * @param  array{
      *   anio:int,
      *   mes:int,
-     *   kpis:array{total:int,justificadas:int,sin:int,incompletas:int,minutos:int,empleados:int},
+     *   kpis:array{total:int,temprano:int,justificadas:int,sin:int,incompletas:int,minutos:int,empleados:int},
      *   filas:list<array<string,mixed>>
      * }  $informe
      */
@@ -30,7 +30,7 @@ class LlegadaTardeExcelExporter
         $libro = new Spreadsheet;
         $libro->getProperties()
             ->setCreator('Control de acceso')
-            ->setTitle('Informe de llegadas tarde')
+            ->setTitle('Informe de Asistencia Horaria')
             ->setDescription('Informe completo de todos los empleados · '.$mesLabel);
 
         $this->llenarResumen($libro->getActiveSheet(), $informe, $mesLabel, $generado, count($filas));
@@ -38,7 +38,7 @@ class LlegadaTardeExcelExporter
 
         $libro->setActiveSheetIndex(0);
 
-        $archivo = 'llegadas-tarde-completo-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.xlsx';
+        $archivo = 'asistencia-horaria-completo-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.xlsx';
 
         return response()->streamDownload(function () use ($libro) {
             $writer = new Xlsx($libro);
@@ -50,14 +50,14 @@ class LlegadaTardeExcelExporter
     }
 
     /**
-     * @param  array{kpis:array{total:int,justificadas:int,sin:int,incompletas:int,minutos:int,empleados:int}}  $informe
+     * @param  array{kpis:array{total:int,temprano:int,justificadas:int,sin:int,incompletas:int,minutos:int,empleados:int}}  $informe
      */
     private function llenarResumen(Worksheet $hoja, array $informe, string $mesLabel, string $generado, int $filas): void
     {
         $hoja->setTitle('Resumen');
         $kpis = $informe['kpis'];
 
-        $hoja->setCellValue('A1', 'Informe de llegadas tarde');
+        $hoja->setCellValue('A1', 'Informe de Asistencia Horaria');
         $hoja->mergeCells('A1:B1');
         $hoja->getStyle('A1')->getFont()->setBold(true)->setSize(16);
 
@@ -69,6 +69,7 @@ class LlegadaTardeExcelExporter
             [null, null],
             ['Indicador', 'Valor'],
             ['Llegadas tarde', $kpis['total']],
+            ['Salidas temprano', $kpis['temprano'] ?? 0],
             ['Justificadas', $kpis['justificadas']],
             ['Sin justificar', $kpis['sin']],
             ['Marcaciones incompletas', $kpis['incompletas']],
@@ -81,7 +82,7 @@ class LlegadaTardeExcelExporter
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setRGB('1E3A5F');
         $hoja->getStyle('A7:B7')->getFont()->getColor()->setRGB('FFFFFF');
-        $hoja->getStyle('A7:B13')->applyFromArray($this->bordes());
+        $hoja->getStyle('A7:B14')->applyFromArray($this->bordes());
         $hoja->getColumnDimension('A')->setWidth(28);
         $hoja->getColumnDimension('B')->setWidth(28);
     }
@@ -101,10 +102,10 @@ class LlegadaTardeExcelExporter
             'Día',
             'Jornada',
             'Tipo',
-            'Entrada',
+            'Programada',
             'Marcó',
             'Minutos',
-            'Retraso',
+            'Desvío',
             'Respaldo',
             'Motivo',
             'Detalle',
@@ -114,7 +115,11 @@ class LlegadaTardeExcelExporter
         $datos = [];
         foreach ($filas as $fila) {
             $fecha = $fila['fecha'] instanceof Carbon ? $fila['fecha']->format('d/m/Y') : '';
-            $tipo = ($fila['tipo'] ?? '') === 'incompleta' ? 'Marcación incompleta' : 'Llegada tarde';
+            $tipo = match ($fila['tipo'] ?? '') {
+                'incompleta' => 'Marcación incompleta',
+                'temprano' => 'Salida temprano',
+                default => 'Llegada tarde',
+            };
             $datos[] = [
                 $fila['nombre'],
                 $fila['identificacion'],
@@ -153,7 +158,7 @@ class LlegadaTardeExcelExporter
             $hoja->getColumnDimension($col)->setAutoSize(true);
         }
 
-        $hoja->getHeaderFooter()->setOddHeader('&CInforme de llegadas tarde · '.$mesLabel.' · todos los empleados');
+        $hoja->getHeaderFooter()->setOddHeader('&CInforme de Asistencia Horaria · '.$mesLabel.' · todos los empleados');
         $hoja->getHeaderFooter()->setOddFooter('&LControl de acceso&RPágina &P de &N');
     }
 

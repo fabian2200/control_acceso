@@ -2,13 +2,13 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Informe de llegadas tarde · {{ $mesLabel }}</title>
+    <title>Informe de Asistencia Horaria · {{ $mesLabel }}</title>
     <style>
         body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #0f172a; }
         h1 { font-size: 18px; margin: 0 0 4px; }
         .meta { color: #64748b; margin: 0 0 14px; font-size: 10px; }
         .kpis { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-        .kpis td { border: 1px solid #e2e8f0; padding: 8px 10px; width: 16.66%; }
+        .kpis td { border: 1px solid #e2e8f0; padding: 8px 10px; width: 14.28%; }
         .kpis span { display: block; color: #64748b; font-size: 8px; text-transform: uppercase; letter-spacing: .04em; }
         .kpis strong { display: block; font-size: 16px; margin-top: 4px; }
         table.detalle { width: 100%; border-collapse: collapse; }
@@ -18,17 +18,19 @@
         .novedad { color: #15803d; font-weight: 700; }
         .permiso { color: #b45309; font-weight: 700; }
         .incompleta { color: #1d4ed8; font-weight: 700; }
+        .temprano { color: #0f766e; font-weight: 700; }
         .empty { color: #64748b; }
         .muted { color: #64748b; font-size: 9px; }
     </style>
 </head>
 <body>
-    <h1>Informe de llegadas tarde</h1>
+    <h1>Informe de Asistencia Horaria</h1>
     <p class="meta">{{ $mesLabel }} · {{ $empleadoNombre }} · generado {{ $generado }}</p>
 
     <table class="kpis">
         <tr>
             <td><span>Llegadas tarde</span><strong>{{ $kpis['total'] }}</strong></td>
+            <td><span>Salidas temprano</span><strong>{{ $kpis['temprano'] }}</strong></td>
             <td><span>Justificadas</span><strong>{{ $kpis['justificadas'] }}</strong></td>
             <td><span>Sin justificar</span><strong>{{ $kpis['sin'] }}</strong></td>
             <td><span>Incompletas</span><strong>{{ $kpis['incompletas'] }}</strong></td>
@@ -38,7 +40,7 @@
     </table>
 
     @if (empty($filas))
-        <p class="empty">No hay llegadas tarde ni marcaciones incompletas con ese filtro.</p>
+        <p class="empty">No hay llegadas tarde, salidas temprano ni marcaciones incompletas con ese filtro.</p>
     @else
         <table class="detalle">
             <thead>
@@ -47,9 +49,10 @@
                     <th>Cédula</th>
                     <th>Horario</th>
                     <th>Día</th>
-                    <th>Entrada</th>
+                    <th>Tipo</th>
+                    <th>Programada</th>
                     <th>Marcó</th>
-                    <th>Tarde</th>
+                    <th>Desvío</th>
                     <th>Respaldo</th>
                     <th>Detalle</th>
                 </tr>
@@ -61,9 +64,14 @@
                         <td>{{ $fila['identificacion'] }}</td>
                         <td>{{ $fila['horario'] }}</td>
                         <td>{{ $fila['dia_label'] }}</td>
+                        <td>{{ match ($fila['tipo'] ?? '') {
+                            'temprano' => 'Salida temprano',
+                            'incompleta' => 'Incompleta',
+                            default => 'Llegada tarde',
+                        } }}</td>
                         <td>{{ $fila['entrada'] }}</td>
                         <td>{{ $fila['marco'] }}</td>
-                        <td>{{ $fila['tarde_label'] }}</td>
+                        <td class="{{ ($fila['tipo'] ?? '') === 'temprano' ? 'temprano' : '' }}">{{ $fila['tarde_label'] }}</td>
                         <td class="{{ $fila['respaldo'] }}">{{ $fila['respaldo_label'] }}</td>
                         <td>{{ $fila['mensaje'] }}</td>
                     </tr>

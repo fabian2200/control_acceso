@@ -1,8 +1,8 @@
 @extends('layouts.admin')
 
-@section('title', 'Llegadas tarde')
+@section('title', 'Asistencia horaria')
 @section('crumb', 'Informe')
-@section('heading', 'Informe de llegadas tarde')
+@section('heading', 'Informe de Asistencia Horaria')
 
 @section('actions')
     <a href="{{ route('admin.llegadas-tarde.pdf', request()->query()) }}" class="btn-primary"><i class="fas fa-file-pdf"></i> Exportar PDF</a>
@@ -10,7 +10,7 @@
 @endsection
 
 @section('content')
-<div class="kpi-grid kpi-grid-6">
+<div class="kpi-grid kpi-grid-5">
     <article class="kpi">
         <div class="card-icon"><i class="fas fa-clock"></i></div>
         <div class="kpi-body">
@@ -18,18 +18,11 @@
             <strong>{{ $kpis['total'] }}</strong>
         </div>
     </article>
-    <article class="kpi">
-        <div class="card-icon"><i class="fas fa-check-circle"></i></div>
+    <article class="kpi kpi-temprano">
+        <div class="card-icon"><i class="fas fa-sign-out-alt"></i></div>
         <div class="kpi-body">
-            <span>Justificadas</span>
-            <strong>{{ $kpis['justificadas'] }}</strong>
-        </div>
-    </article>
-    <article class="kpi kpi-alert">
-        <div class="card-icon"><i class="fas fa-times-circle"></i></div>
-        <div class="kpi-body">
-            <span>Sin justificar</span>
-            <strong>{{ $kpis['sin'] }}</strong>
+            <span>Salidas temprano</span>
+            <strong>{{ $kpis['temprano'] }}</strong>
         </div>
     </article>
     <article class="kpi kpi-incompleta">
@@ -58,12 +51,13 @@
 <section class="panel tarde-panel">
     <div class="panel-head tarde-head">
         <div>
-            <h2>Detalle de llegadas</h2>
+            <h2>Detalle de asistencia</h2>
             <p class="tarde-legend">
                 Franja <em class="lg-novedad">verde</em>: novedad.
                 <em class="lg-permiso">ámbar</em>: permiso.
-                <em class="lg-sin">granate</em>: tarde sin respaldo.
+                <em class="lg-sin">granate</em>: sin respaldo.
                 <em class="lg-incompleta">azul</em>: no marcó la entrada.
+                <em class="lg-temprano">verde azulado</em>: salió antes de la hora.
             </p>
         </div>
     </div>
@@ -96,30 +90,32 @@
         <a class="chip {{ $respaldo === 'novedad' ? 'is-on chip-novedad' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'novedad' ? 'todos' : 'novedad'])) }}"><i class="fas fa-clipboard"></i> Con novedad</a>
         <a class="chip {{ $respaldo === 'permiso' ? 'is-on chip-permiso' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'permiso' ? 'todos' : 'permiso'])) }}"><i class="fas fa-id-card"></i> Con permiso</a>
         <a class="chip {{ $respaldo === 'incompleta' ? 'is-on chip-incompleta' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'incompleta' ? 'todos' : 'incompleta'])) }}"><i class="fas fa-minus-circle"></i> Marcación incompleta</a>
+        <a class="chip {{ $respaldo === 'temprano' ? 'is-on chip-temprano' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'temprano' ? 'todos' : 'temprano'])) }}"><i class="fas fa-sign-out-alt"></i> Salida temprano</a>
         <button type="button" class="chip" id="btnExpandir"><i class="fas fa-expand-alt"></i> Desplegar todo</button>
     </div>
 
     @if (empty($filas))
-        <p class="empty">No hay llegadas tarde ni marcaciones incompletas con ese filtro.</p>
+        <p class="empty">No hay llegadas tarde, salidas temprano ni marcaciones incompletas con ese filtro.</p>
     @else
         <div class="tarde-table-head">
             <span>Empleado</span>
             <span>Día</span>
-            <span>Entrada</span>
+            <span>Programada</span>
             <span>Marcó</span>
-            <span>Tarde</span>
+            <span>Desvío</span>
             <span>Respaldo</span>
         </div>
         <div class="tarde-list" id="listaTarde">
             @foreach ($filas as $fila)
-                <details class="tarde-row is-{{ $fila['respaldo'] }}">
+                <details class="tarde-row is-{{ $fila['respaldo'] }} is-tipo-{{ $fila['tipo'] ?? 'tarde' }}">
                     <summary>
                         <span class="tarde-emp">
                             <span class="card-icon tarde-row-icon">
-                                <i class="fas {{ match ($fila['respaldo']) {
-                                    'novedad' => 'fa-clipboard',
-                                    'permiso' => 'fa-id-card',
-                                    'incompleta' => 'fa-minus-circle',
+                                <i class="fas {{ match (true) {
+                                    ($fila['tipo'] ?? '') === 'temprano' => 'fa-sign-out-alt',
+                                    ($fila['respaldo'] ?? '') === 'novedad' => 'fa-clipboard',
+                                    ($fila['respaldo'] ?? '') === 'permiso' => 'fa-id-card',
+                                    ($fila['respaldo'] ?? '') === 'incompleta' => 'fa-minus-circle',
                                     default => 'fa-exclamation-circle',
                                 } }}"></i>
                             </span>
@@ -131,7 +127,11 @@
                         <span>{{ $fila['dia_label'] }}</span>
                         <span>{{ $fila['entrada'] }}</span>
                         <span>{{ $fila['marco'] }}</span>
-                        <span class="{{ ($fila['tipo'] ?? '') === 'incompleta' ? 'tarde-incomp' : 'tarde-mins' }}">{{ $fila['tarde_label'] }}</span>
+                        <span class="{{ match ($fila['tipo'] ?? '') {
+                            'incompleta' => 'tarde-incomp',
+                            'temprano' => 'tarde-temprano',
+                            default => 'tarde-mins',
+                        } }}">{{ $fila['tarde_label'] }}</span>
                         <span class="tarde-badges">
                             <span class="pill pill-horario">{{ $fila['horario'] }}</span>
                             <span class="pill pill-{{ $fila['respaldo'] }}">{{ $fila['respaldo_label'] }}</span>
@@ -141,7 +141,7 @@
                         <p class="tarde-detail-title">{{ $fila['titulo_detalle'] }} — {{ $fila['mensaje'] }}</p>
                         <dl class="tarde-dl">
                             <div>
-                                <dt>Debía entrar</dt>
+                                <dt>{{ $fila['hora_label'] ?? 'Debía entrar' }}</dt>
                                 <dd>{{ $fila['entrada'] }}</dd>
                             </div>
                             <div>
@@ -149,7 +149,7 @@
                                 <dd>{{ $fila['marco'] }}</dd>
                             </div>
                             <div>
-                                <dt>Retraso</dt>
+                                <dt>Desvío</dt>
                                 <dd>{{ $fila['tarde_label'] }}</dd>
                             </div>
                             <div>
