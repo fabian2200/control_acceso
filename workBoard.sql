@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS `acceso_terminales` (
   `nombre` varchar(120) NOT NULL,
   `ubicacion` varchar(200) DEFAULT NULL,
   `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `fecha_inicio_funcionamiento` date DEFAULT NULL,
   `api_token` char(64) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
@@ -303,6 +304,20 @@ SET @sql := IF(@has_mandado > 0 AND @has_autorizado = 0,
   IF(@has_mandado = 0 AND @has_autorizado = 0,
     'ALTER TABLE `acceso_salidas_ocasionales` ADD COLUMN `autorizado_por` varchar(80) DEFAULT NULL AFTER `motivo_texto`',
     'SELECT 1')
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Fecha desde la cual el kiosko cuenta como operativo (informes de marcación incompleta)
+SET @db := DATABASE();
+SET @has_inicio_func := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'acceso_terminales' AND COLUMN_NAME = 'fecha_inicio_funcionamiento'
+);
+SET @sql := IF(@has_inicio_func = 0,
+  'ALTER TABLE `acceso_terminales` ADD COLUMN `fecha_inicio_funcionamiento` date DEFAULT NULL AFTER `activo`',
+  'SELECT 1'
 );
 PREPARE stmt FROM @sql;
 EXECUTE stmt;

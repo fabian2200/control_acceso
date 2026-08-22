@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AccesoHorarioItem;
 use App\Models\AccesoNovedad;
 use App\Models\AccesoRegistro;
+use App\Models\AccesoTerminal;
 use App\Models\Empleado;
 use App\Models\Permiso;
 use Carbon\Carbon;
@@ -248,6 +249,14 @@ class LlegadaTardeService
     ): array {
         $filas = [];
         $hasta = $fin->copy()->min($ahora->copy()->startOfDay());
+        $desde = $inicio->copy();
+        $inicioSistema = $this->fechaInicioFuncionamiento();
+        if ($inicioSistema && $desde->lt($inicioSistema)) {
+            $desde = $inicioSistema->copy();
+        }
+        if ($desde->gt($hasta)) {
+            return [];
+        }
 
         foreach ($empleados as $empleado) {
             $horario = $empleado->asignacionHorario?->horario;
@@ -255,7 +264,7 @@ class LlegadaTardeService
                 continue;
             }
 
-            for ($dia = $inicio->copy(); $dia->lte($hasta); $dia->addDay()) {
+            for ($dia = $desde->copy(); $dia->lte($hasta); $dia->addDay()) {
                 $item = $horario->items->firstWhere('dia_semana', $dia->dayOfWeekIso);
                 if (! $item || $item->esDescanso()) {
                     continue;
@@ -335,6 +344,19 @@ class LlegadaTardeService
             'pie' => 'El empleado tenía horario este día y no alcanzó a marcar la entrada'
                 .($novedad ? '. Existe novedad, pero no hay marcación de entrada.' : '.'),
         ];
+    }
+
+    private function fechaInicioFuncionamiento(): ?Carbon
+    {
+        $valor = AccesoTerminal::query()
+            ->whereNotNull('fecha_inicio_funcionamiento')
+            ->min('fecha_inicio_funcionamiento');
+
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+
+        return $this->fechaCarbon($valor);
     }
 
     private function novedadesPorClave(Collection $empleadoIds, Carbon $inicio, Carbon $fin): Collection

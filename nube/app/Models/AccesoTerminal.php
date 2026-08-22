@@ -18,6 +18,7 @@ class AccesoTerminal extends Model
     {
         return [
             'activo' => 'boolean',
+            'fecha_inicio_funcionamiento' => 'date',
         ];
     }
 }
