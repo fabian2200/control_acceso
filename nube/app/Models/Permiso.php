@@ -106,8 +106,7 @@ class Permiso extends Model
         $digits = str_pad(substr($digits, 0, 4), 4, '0');
 
         $hhmm = substr($digits, 0, 2).':'.substr($digits, 2, 2);
-        $dt = \DateTime::createFromFormat('H:i', $hhmm);
 
-        return $dt ? strtoupper($dt->format('h:i A')) : $hhmm;
+        return \App\Services\LlegadaTardeService::horaLabel($hhmm);
     }
 }

@@ -137,7 +137,7 @@ class AccesoService {
       if (porNovedad) {
         ventana = null;
       } else if (porPermiso && graciaPermiso != null) {
-        ventana = 'habilitado por permiso hasta ${HoraFmt.of(graciaPermiso)}';
+        ventana = 'Habilitado por permiso hasta ${HoraFmt.of(graciaPermiso)}';
       } else if (slot['tipo'] == 'salida' && enabled) {
         ventana = null;
       } else {
@@ -150,7 +150,7 @@ class AccesoService {
         sub: enabled
             ? (porNovedad
                 ? 'Habilitado por novedad'
-                : (ventana == null ? horaAm : 'Hora de entrada $horaAm \nPuedes marcar desde $ventana'))
+                : (ventana == null ? horaAm : 'Hora de entrada $horaAm \n$ventana'))
             : (motivo == 'Ya registrada' ? 'Ya registrada' : horaAm),
         nota: (!enabled && motivo != null && motivo != 'Ya registrada' && motivo != hora)
             ? motivo
@@ -374,7 +374,7 @@ class AccesoService {
     }
     if ([3, 4, 5].contains(caso)) {
       final campoSalida = caso == 5 ? _campoUltimaSalida(item) : 'salida_jornada_1';
-      final horaRegistro = ([4, 5].contains(caso) ? regresoEn : null) ?? now;
+      final esDiligencia = permiso == null && motivo == 'Diligencia empresarial';
       final insertada = await _insertarRegistroSlot(
         empleadoId,
         'salida',
@@ -382,7 +382,7 @@ class AccesoService {
         campoSalida,
         ocasionalId: ocasionalId,
         foto: foto,
-        registradoEn: horaRegistro,
+        hora: esDiligencia ? _horaRegistro(hora) : null,
       );
       if (insertada) acciones.add(_etiquetaAccion('salida', campoSalida));
     }
@@ -777,10 +777,17 @@ class AccesoService {
     int? ocasionalId,
     String? foto,
     DateTime? registradoEn,
+    String? hora,
   }) async {
-    final p = await _puntualidadSlot(empleadoId, tipo, now, campo);
+    final p = Map<String, Object?>.from(await _puntualidadSlot(empleadoId, tipo, now, campo));
     final esperada = p['hora_esperada'] != null ? _hhmm(p['hora_esperada']) : null;
     if (await _yaRegistrado(empleadoId, tipo, esperada, now)) return false;
+    if (hora != null) {
+      p['llego_tarde'] = 0;
+      p['llego_temprano'] = 0;
+      p['salio_temprano'] = 0;
+      p['salio_tarde'] = 0;
+    }
     await _crearRegistro(
       empleadoId,
       tipo,
@@ -788,6 +795,7 @@ class AccesoService {
       p,
       ocasionalId: ocasionalId,
       foto: foto,
+      hora: hora,
     );
     return true;
   }
@@ -869,9 +877,10 @@ class AccesoService {
     Map<String, Object?> p, {
     int? ocasionalId,
     String? foto,
+    String? hora,
   }) async {
     final fecha = _fecha(now);
-    final hora = DateFormat('HH:mm:ss').format(now);
+    hora ??= DateFormat('HH:mm:ss').format(now);
     var where = 'empleado_id = ? AND tipo = ? AND fecha = ?';
     final args = <Object?>[empleadoId, tipo, fecha];
     if (p['hora_esperada'] != null) {
@@ -1030,6 +1039,15 @@ class AccesoService {
     if (v == null) return '';
     final s = v.toString();
     return s.length >= 5 ? s.substring(0, 5) : s;
+  }
+
+  String? _horaRegistro(Object? v) {
+    if (v == null) return null;
+    final s = v.toString().trim();
+    if (s.isEmpty) return null;
+    if (s.length >= 8) return s.substring(0, 8);
+    if (s.length >= 5) return '${s.substring(0, 5)}:00';
+    return null;
   }
 
   String _normalizarHora(String? hora) {

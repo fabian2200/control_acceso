@@ -24,7 +24,7 @@ class LlegadaTardeExcelExporter
     public function download(array $informe): StreamedResponse
     {
         $mesLabel = LlegadaTardeService::MESES[$informe['mes']].' '.$informe['anio'];
-        $generado = now('America/Bogota')->format('d/m/Y H:i');
+        $generado = LlegadaTardeService::fechaHoraLabel(now('America/Bogota'));
         $filas = $this->ordenarFilas($informe['filas']);
 
         $libro = new Spreadsheet;

@@ -37,8 +37,8 @@
                 <tbody>
                     @foreach ($novedades as $novedad)
                         @php
-                            $inicio = $novedad->hora_inicio_jornada ? substr((string) $novedad->hora_inicio_jornada, 0, 5) : '—';
-                            $fin = $novedad->hora_fin_jornada ? substr((string) $novedad->hora_fin_jornada, 0, 5) : '—';
+                            $inicio = \App\Services\LlegadaTardeService::horaLabel($novedad->hora_inicio_jornada);
+                            $fin = \App\Services\LlegadaTardeService::horaLabel($novedad->hora_fin_jornada);
                             $pill = match ($novedad->aprobada) {
                                 1 => 'pill-ok',
                                 0 => 'pill-off',

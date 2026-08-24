@@ -51,7 +51,7 @@
                             default => 'fa-circle',
                         } }}"></i>
                     </span>
-                    <time>{{ $item['cuando']->timezone('America/Bogota')->format('d/m H:i') }}</time>
+                    <time>{{ \App\Services\LlegadaTardeService::fechaHoraLabel($item['cuando'], 'd/m') }}</time>
                     <strong>{{ $item['titulo'] }}</strong>
                     <span>{{ $item['detalle'] }}</span>
                 </li>

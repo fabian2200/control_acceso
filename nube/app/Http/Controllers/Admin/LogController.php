@@ -115,13 +115,13 @@ class LogController extends Controller
                 ? $row->registrado_en
                 : Carbon::parse((string) $row->registrado_en, 'America/Bogota');
             $tarde = (int) $row->llego_tarde + (int) $row->salio_tarde;
-            $esperada = $this->hhmm($row->hora_esperada);
+            $esperada = LlegadaTardeService::horaLabel($row->hora_esperada);
             $items[] = [
                 'cuando' => $cuando,
                 'tipo' => (string) $row->tipo,
                 'titulo' => $row->tipo === 'salida' ? 'Salida' : 'Entrada',
                 'detalle' => implode(' · ', array_filter([
-                    $this->hhmm($row->hora),
+                    LlegadaTardeService::horaLabel($row->hora),
                     $esperada !== '—' ? 'esperada '.$esperada : null,
                     $tarde > 0 ? 'tarde '.LlegadaTardeService::minutosLabel($tarde) : null,
                 ])),
@@ -137,11 +137,11 @@ class LogController extends Controller
                     'tipo' => 'salida_ocasional',
                     'titulo' => 'Salida ocasional',
                     'detalle' => implode(' · ', array_filter([
-                        $cuando->format('H:i'),
+                        LlegadaTardeService::horaLabel($cuando),
                         $row->motivo_texto ?: null,
                         $row->autorizado_por ? 'autorizado por '.$row->autorizado_por : null,
-                        $this->hhmm($row->hora_regreso_esperada) !== '—'
-                            ? 'regreso '.$this->hhmm($row->hora_regreso_esperada)
+                        LlegadaTardeService::horaLabel($row->hora_regreso_esperada) !== '—'
+                            ? 'regreso '.LlegadaTardeService::horaLabel($row->hora_regreso_esperada)
                             : null,
                     ])),
                     'alerta' => false,
@@ -153,9 +153,9 @@ class LogController extends Controller
                 $items[] = [
                     'cuando' => $cuando,
                     'tipo' => 'regreso',
-                    'titulo' => 'Regreso',
+                    'titulo' => 'Regreso Salida Ocasional',
                     'detalle' => implode(' · ', array_filter([
-                        $cuando->format('H:i'),
+                        LlegadaTardeService::horaLabel($cuando),
                         $tarde > 0 ? 'tarde '.LlegadaTardeService::minutosLabel($tarde) : null,
                     ])),
                     'alerta' => $tarde > 0,

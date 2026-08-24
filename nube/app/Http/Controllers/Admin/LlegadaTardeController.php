@@ -32,7 +32,7 @@ class LlegadaTardeController extends Controller
             ...$informe,
             'mesLabel' => $mesLabel,
             'empleadoNombre' => $empleadoNombre,
-            'generado' => now('America/Bogota')->format('d/m/Y H:i'),
+            'generado' => LlegadaTardeService::fechaHoraLabel(now('America/Bogota')),
         ])->setPaper('a4', 'landscape');
 
         $archivo = 'asistencia-horaria-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.pdf';
