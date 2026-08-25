@@ -6,7 +6,7 @@ import 'package:image/image.dart' as img;
 class FotoKiosko {
   FotoKiosko._();
 
-  static const lado = 100;
+  static const lado = 300;
   static const calidad = 70;
 
   static String? aJpgDataUrl(

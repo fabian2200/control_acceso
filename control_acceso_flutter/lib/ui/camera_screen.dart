@@ -224,7 +224,7 @@ class _CameraScreenState extends State<CameraScreen> {
             child: Column(
               children: [
                 Text(
-                  _capturando ? 'Guardando foto 100×100…' : 'Mira a la cámara',
+                  _capturando ? 'Guardando foto 300x300…' : 'Mira a la cámara',
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 22, color: Color(0xB8FFFFFF)),
                 ),
