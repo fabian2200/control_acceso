@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\FotoMarca;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -42,5 +43,10 @@ class AccesoRegistro extends Model
     public function salidaOcasional(): BelongsTo
     {
         return $this->belongsTo(AccesoSalidaOcasional::class, 'salida_ocasional_id');
+    }
+
+    public function fotoSrc(): ?string
+    {
+        return FotoMarca::src($this->foto);
     }
 }

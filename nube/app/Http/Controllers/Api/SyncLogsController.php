@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AccesoRegistro;
 use App\Models\AccesoSalidaOcasional;
 use App\Models\Empleado;
+use App\Support\FotoMarca;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,13 +37,13 @@ class SyncLogsController extends Controller
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
             ->orderBy('registrado_en')
-            ->get(['tipo', 'fecha', 'hora', 'registrado_en', 'hora_esperada', 'llego_tarde', 'llego_temprano', 'salio_temprano', 'salio_tarde']);
+            ->get(['tipo', 'fecha', 'hora', 'registrado_en', 'hora_esperada', 'llego_tarde', 'llego_temprano', 'salio_temprano', 'salio_tarde', 'foto']);
 
         $ocasionales = AccesoSalidaOcasional::query()
             ->where('empleado_id', $empleadoId)
             ->whereBetween('salida_en', [$inicio, $fin])
             ->orderBy('salida_en')
-            ->get(['motivo_texto', 'autorizado_por', 'salida_en', 'hora_regreso_esperada', 'regreso_en', 'minutos_tarde', 'estado']);
+            ->get(['motivo_texto', 'autorizado_por', 'salida_en', 'hora_regreso_esperada', 'regreso_en', 'minutos_tarde', 'estado', 'foto_salida', 'foto_regreso']);
 
         return response()->json([
             'ok' => true,
@@ -53,8 +54,19 @@ class SyncLogsController extends Controller
                 'nombre' => trim(($empleado->nombres ?? '').' '.($empleado->apellidos ?? '')),
                 'identificacion' => $empleado->identificacion,
             ],
-            'registros' => $registros,
-            'ocasionales' => $ocasionales,
+            'registros' => $registros->map(function (AccesoRegistro $row) use ($request) {
+                $data = $row->toArray();
+                $data['foto'] = FotoMarca::absoluta($request, $row->foto);
+
+                return $data;
+            }),
+            'ocasionales' => $ocasionales->map(function (AccesoSalidaOcasional $row) use ($request) {
+                $data = $row->toArray();
+                $data['foto_salida'] = FotoMarca::absoluta($request, $row->foto_salida);
+                $data['foto_regreso'] = FotoMarca::absoluta($request, $row->foto_regreso);
+
+                return $data;
+            }),
         ]);
     }
 }

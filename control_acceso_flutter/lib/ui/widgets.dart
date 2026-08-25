@@ -295,6 +295,62 @@ class EmployeePhoto extends StatelessWidget {
   }
 }
 
+class LogPhoto extends StatelessWidget {
+  const LogPhoto({super.key, this.src, this.size = 56});
+
+  final String? src;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final thumb = _imagen(src, size, size) ??
+        Container(
+          width: size,
+          height: size,
+          color: const Color(0xFFEEF2F7),
+          alignment: Alignment.center,
+          child: const Icon(Icons.person, color: Color(0xFFCBD5E1)),
+        );
+    return GestureDetector(
+      onTap: src == null || src!.trim().isEmpty
+          ? null
+          : () => showDialog<void>(
+                context: context,
+                builder: (ctx) => Dialog(
+                  backgroundColor: Colors.transparent,
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(ctx).pop(),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: _imagen(src, 300, 300) ?? thumb,
+                    ),
+                  ),
+                ),
+              ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: thumb,
+      ),
+    );
+  }
+
+  static Widget? _imagen(String? src, double w, double h) {
+    final value = src?.trim();
+    if (value == null || value.isEmpty) return null;
+    if (value.startsWith('data:image')) {
+      try {
+        return Image.memory(base64Decode(value.split(',').last), fit: BoxFit.cover, width: w, height: h);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (value.startsWith('http')) {
+      return Image.network(value, fit: BoxFit.cover, width: w, height: h, errorBuilder: (_, _, _) => SizedBox(width: w, height: h));
+    }
+    return null;
+  }
+}
+
 class Eyebrow extends StatelessWidget {
   const Eyebrow(this.text, {super.key, this.color = KioskColors.faint, this.fontSize = 12});
   final String text;

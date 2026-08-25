@@ -184,6 +184,8 @@ class AdminLogScreen extends StatelessWidget {
                             ),
                             child: Row(
                               children: [
+                                LogPhoto(src: item.foto),
+                                const SizedBox(width: 16),
                                 SizedBox(
                                   width: 168,
                                   child: Text(

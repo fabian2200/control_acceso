@@ -271,6 +271,7 @@ CREATE TABLE IF NOT EXISTS acceso_novedades (
         if (tarde > 0) 'tarde $tarde min',
       ].where((s) => s.isNotEmpty).join(' · '),
       alerta: tarde > 0,
+      foto: row['foto'] as String?,
     );
   }
 
@@ -289,6 +290,7 @@ CREATE TABLE IF NOT EXISTS acceso_novedades (
           if ((row['hora_regreso_esperada'] as String?)?.isNotEmpty == true)
             'regreso ${HoraFmt.from(row['hora_regreso_esperada'])}',
         ].join(' · '),
+        foto: row['foto_salida'] as String?,
       );
     }
     final regreso = DateTime.tryParse('${row['regreso_en']}'.replaceFirst(' ', 'T'));
@@ -304,6 +306,7 @@ CREATE TABLE IF NOT EXISTS acceso_novedades (
           if (tarde > 0) 'tarde $tarde min',
         ].join(' · '),
         alerta: tarde > 0,
+        foto: row['foto_regreso'] as String?,
       );
     }
   }

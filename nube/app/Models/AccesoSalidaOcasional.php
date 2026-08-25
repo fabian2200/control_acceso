@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\FotoMarca;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -46,5 +47,15 @@ class AccesoSalidaOcasional extends Model
     public function registros(): HasMany
     {
         return $this->hasMany(AccesoRegistro::class, 'salida_ocasional_id');
+    }
+
+    public function fotoSalidaSrc(): ?string
+    {
+        return FotoMarca::src($this->foto_salida);
+    }
+
+    public function fotoRegresoSrc(): ?string
+    {
+        return FotoMarca::src($this->foto_regreso);
     }
 }

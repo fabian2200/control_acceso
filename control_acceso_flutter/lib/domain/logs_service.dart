@@ -42,6 +42,7 @@ class LogsService {
           if (tarde > 0) 'tarde $tarde min',
         ].where((s) => s.isNotEmpty).join(' · '),
         alerta: tarde > 0,
+        foto: _foto(map['foto']),
       ));
     }
     for (final row in (data['ocasionales'] as List?) ?? const []) {
@@ -59,6 +60,7 @@ class LogsService {
             if ('${map['autorizado_por'] ?? ''}'.isNotEmpty) 'autorizado por ${map['autorizado_por']}',
             if (HoraFmt.from(map['hora_regreso_esperada']).isNotEmpty) 'regreso ${HoraFmt.from(map['hora_regreso_esperada'])}',
           ].join(' · '),
+          foto: _foto(map['foto_salida']),
         ));
       }
       final regreso = _dt(map['regreso_en']);
@@ -73,6 +75,7 @@ class LogsService {
             if (tarde > 0) 'tarde $tarde min',
           ].join(' · '),
           alerta: tarde > 0,
+          foto: _foto(map['foto_regreso']),
         ));
       }
     }
@@ -90,6 +93,11 @@ class LogsService {
   int _int(Object? v) {
     if (v is int) return v;
     return int.tryParse('${v ?? 0}') ?? 0;
+  }
+
+  String? _foto(Object? v) {
+    final value = v?.toString().trim() ?? '';
+    return value.isEmpty ? null : value;
   }
 
   String _titulo(String tipo) {

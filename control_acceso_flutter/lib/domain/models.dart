@@ -43,6 +43,7 @@ class LogItem {
     required this.titulo,
     required this.detalle,
     this.alerta = false,
+    this.foto,
   });
 
   final DateTime cuando;
@@ -50,6 +51,7 @@ class LogItem {
   final String titulo;
   final String detalle;
   final bool alerta;
+  final String? foto;
 }
 
 class OpenExit {

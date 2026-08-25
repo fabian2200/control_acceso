@@ -41,16 +41,22 @@
         <ul class="log-timeline">
             @foreach ($items as $item)
                 <li class="log-item {{ $item['alerta'] ? 'is-alerta' : '' }}">
-                    <span class="card-icon log-item-icon">
-                        <i class="fas {{ match ($item['tipo']) {
-                            'entrada' => 'fa-sign-in-alt',
-                            'salida' => 'fa-sign-out-alt',
-                            'salida_ocasional' => 'fa-walking',
-                            'regreso' => 'fa-undo',
-                            'novedad' => 'fa-clipboard',
-                            default => 'fa-circle',
-                        } }}"></i>
-                    </span>
+                    @if (! empty($item['foto']))
+                        <button type="button" class="log-foto" data-foto="{{ $item['foto'] }}" title="Ver foto">
+                            <img src="{{ $item['foto'] }}" alt="Foto de {{ $item['titulo'] }}">
+                        </button>
+                    @else
+                        <span class="card-icon log-item-icon">
+                            <i class="fas {{ match ($item['tipo']) {
+                                'entrada' => 'fa-sign-in-alt',
+                                'salida' => 'fa-sign-out-alt',
+                                'salida_ocasional' => 'fa-walking',
+                                'regreso' => 'fa-undo',
+                                'novedad' => 'fa-clipboard',
+                                default => 'fa-circle',
+                            } }}"></i>
+                        </span>
+                    @endif
                     <time>{{ \App\Services\LlegadaTardeService::fechaHoraLabel($item['cuando'], 'd/m') }}</time>
                     <strong>{{ $item['titulo'] }}</strong>
                     <span>{{ $item['detalle'] }}</span>
@@ -59,4 +65,25 @@
         </ul>
     @endif
 </section>
+<div class="log-lightbox" id="logLightbox" hidden>
+    <button type="button" class="log-lightbox-close" aria-label="Cerrar">&times;</button>
+    <img alt="Foto de la marca">
+</div>
 @endsection
+
+@push('scripts')
+<script>
+    const box = document.getElementById('logLightbox');
+    const img = box?.querySelector('img');
+    const close = () => { box.hidden = true; };
+    document.querySelectorAll('.log-foto').forEach((el) => {
+        el.addEventListener('click', () => {
+            img.src = el.dataset.foto;
+            box.hidden = false;
+        });
+    });
+    box?.addEventListener('click', (e) => { if (e.target === box) close(); });
+    box?.querySelector('.log-lightbox-close')?.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !box.hidden) close(); });
+</script>
+@endpush

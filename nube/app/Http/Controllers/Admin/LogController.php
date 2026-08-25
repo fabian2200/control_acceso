@@ -104,7 +104,7 @@ class LogController extends Controller
     }
 
     /**
-     * @return list<array{cuando:Carbon,tipo:string,titulo:string,detalle:string,alerta:bool}>
+     * @return list<array{cuando:Carbon,tipo:string,titulo:string,detalle:string,alerta:bool,foto:?string}>
      */
     private function timeline($registros, $ocasionales, $novedades): array
     {
@@ -126,6 +126,7 @@ class LogController extends Controller
                     $tarde > 0 ? 'tarde '.LlegadaTardeService::minutosLabel($tarde) : null,
                 ])),
                 'alerta' => $tarde > 0,
+                'foto' => $row->fotoSrc(),
             ];
         }
 
@@ -145,6 +146,7 @@ class LogController extends Controller
                             : null,
                     ])),
                     'alerta' => false,
+                    'foto' => $row->fotoSalidaSrc(),
                 ];
             }
             if ($row->regreso_en) {
@@ -159,6 +161,7 @@ class LogController extends Controller
                         $tarde > 0 ? 'tarde '.LlegadaTardeService::minutosLabel($tarde) : null,
                     ])),
                     'alerta' => $tarde > 0,
+                    'foto' => $row->fotoRegresoSrc(),
                 ];
             }
         }
@@ -178,6 +181,7 @@ class LogController extends Controller
                     $row->estadoEtiqueta(),
                 ])),
                 'alerta' => $row->aprobada === 0,
+                'foto' => null,
             ];
         }
 
