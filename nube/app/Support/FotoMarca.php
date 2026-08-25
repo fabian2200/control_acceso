@@ -20,7 +20,7 @@ class FotoMarca
             return $foto;
         }
 
-        return '/storage/'.ltrim($foto, '/');
+        return url('/media/'.ltrim($foto, '/'));
     }
 
     public static function absoluta(Request $request, ?string $foto): ?string

@@ -8,7 +8,12 @@ use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\Admin\NovedadController;
 use App\Http\Controllers\Admin\SalidaOcasionalController;
+use App\Http\Controllers\MediaController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/media/{path}', [MediaController::class, 'show'])
+    ->where('path', '.*')
+    ->name('media.show');
 
 Route::get('/', function () {
     return auth('admin_acceso')->check()
