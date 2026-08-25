@@ -82,7 +82,7 @@ class LlegadaTardeService
             return $registro->empleado_id.'|'.$this->fechaCarbon($registro->fecha)->toDateString();
         });
 
-        $salidasTemprano = AccesoRegistro::query()
+        $salidas = AccesoRegistro::query()
             ->with([
                 'empleado.cargoRel',
                 'empleado.user',
@@ -90,14 +90,20 @@ class LlegadaTardeService
                 'horario.items',
             ])
             ->where('tipo', 'salida')
-            ->where('salio_temprano', '>', 0)
-            ->whereNull('salida_ocasional_id')
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
             ->when($empleadoId, fn ($qb) => $qb->where('empleado_id', $empleadoId))
             ->orderBy('fecha')
             ->orderBy('hora')
             ->get();
+
+        $salidasPorDia = $salidas->groupBy(function (AccesoRegistro $registro) {
+            return $registro->empleado_id.'|'.$this->fechaCarbon($registro->fecha)->toDateString();
+        });
+
+        $salidasTemprano = $salidas
+            ->where('salio_temprano', '>', 0)
+            ->whereNull('salida_ocasional_id');
 
         $filas = [];
         foreach ($entradas->where('llego_tarde', '>', 0) as $registro) {
@@ -111,7 +117,7 @@ class LlegadaTardeService
             $filas[] = $fila;
         }
 
-        foreach ($this->filasIncompletas($empleados, $entradasPorDia, $novedades, $permisos, $inicio, $fin, $ahora) as $fila) {
+        foreach ($this->filasIncompletas($empleados, $entradasPorDia, $salidasPorDia, $novedades, $permisos, $inicio, $fin, $ahora) as $fila) {
             $filas[] = $fila;
         }
 
@@ -372,6 +378,7 @@ class LlegadaTardeService
     /**
      * @param  Collection<int, Empleado>  $empleados
      * @param  Collection<string, Collection<int, AccesoRegistro>>  $entradasPorDia
+     * @param  Collection<string, Collection<int, AccesoRegistro>>  $salidasPorDia
      * @param  Collection<int, AccesoNovedad>  $novedades
      * @param  Collection<int, Collection<int, Permiso>>  $permisos
      * @return list<array<string, mixed>>
@@ -379,6 +386,7 @@ class LlegadaTardeService
     private function filasIncompletas(
         Collection $empleados,
         Collection $entradasPorDia,
+        Collection $salidasPorDia,
         Collection $novedades,
         Collection $permisos,
         Carbon $inicio,
@@ -408,33 +416,73 @@ class LlegadaTardeService
                     continue;
                 }
 
-                $marcadas = [];
-                $regs = $entradasPorDia->get($empleado->id.'|'.$dia->toDateString()) ?? collect();
-                foreach ($regs as $registro) {
-                    $marcadas[$this->inferirJornada($registro, $item)] = true;
+                $claveDia = $empleado->id.'|'.$dia->toDateString();
+                $entradasMarcadas = [];
+                foreach ($entradasPorDia->get($claveDia) ?? collect() as $registro) {
+                    $entradasMarcadas[$this->inferirJornada($registro, $item)] = true;
+                }
+                $salidasMarcadas = [];
+                foreach ($salidasPorDia->get($claveDia) ?? collect() as $registro) {
+                    $salidasMarcadas[$this->inferirJornada($registro, $item)] = true;
                 }
 
                 foreach ([1, 2] as $jornada) {
                     $horaEntrada = $item->{'entrada_jornada_'.$jornada};
-                    if (! $horaEntrada || isset($marcadas[$jornada])) {
+                    $horaSalida = $item->{'salida_jornada_'.$jornada};
+                    $tieneEntrada = isset($entradasMarcadas[$jornada]);
+                    $tieneSalida = isset($salidasMarcadas[$jornada]);
+
+                    if ($horaEntrada && ! $tieneEntrada) {
+                        $inicioJornada = $this->carbonHora($dia, $horaEntrada);
+                        if ($inicioJornada !== null && $inicioJornada->lt($ahora)) {
+                            $permiso = $this->permisoDeJornada(
+                                $permisos->get($empleado->user?->id ?? 0) ?? collect(),
+                                $dia,
+                                $horaEntrada,
+                            );
+                            if (! $permiso) {
+                                $filas[] = $this->armarFilaIncompleta(
+                                    $empleado,
+                                    $dia->copy(),
+                                    $jornada,
+                                    $item,
+                                    $novedades,
+                                    $horario->nombre,
+                                    'entrada',
+                                );
+                            }
+                        }
+
                         continue;
                     }
 
-                    $inicioJornada = $this->carbonHora($dia, $horaEntrada);
-                    if ($inicioJornada === null || $inicioJornada->gte($ahora)) {
+                    if (! $horaSalida || ! $tieneEntrada || $tieneSalida) {
+                        continue;
+                    }
+
+                    $finJornada = $this->carbonHora($dia, $horaSalida);
+                    if ($finJornada === null || $finJornada->gte($ahora)) {
                         continue;
                     }
 
                     $permiso = $this->permisoDeJornada(
                         $permisos->get($empleado->user?->id ?? 0) ?? collect(),
                         $dia,
-                        $horaEntrada,
+                        $horaSalida,
                     );
                     if ($permiso) {
                         continue;
                     }
 
-                    $filas[] = $this->armarFilaIncompleta($empleado, $dia->copy(), $jornada, $item, $novedades, $horario->nombre);
+                    $filas[] = $this->armarFilaIncompleta(
+                        $empleado,
+                        $dia->copy(),
+                        $jornada,
+                        $item,
+                        $novedades,
+                        $horario->nombre,
+                        'salida',
+                    );
                 }
             }
         }
@@ -452,13 +500,15 @@ class LlegadaTardeService
         int $jornada,
         AccesoHorarioItem $item,
         Collection $novedades,
-        ?string $horarioNombre = null
+        ?string $horarioNombre = null,
+        string $punto = 'entrada',
     ): array {
+        $esSalida = $punto === 'salida';
         $novedad = $novedades->get($empleado->id.'|'.$fecha->toDateString().'|'.$jornada);
-        $entrada = self::horaLabel($item->{'entrada_jornada_'.$jornada});
+        $programada = self::horaLabel($item->{$esSalida ? 'salida_jornada_'.$jornada : 'entrada_jornada_'.$jornada});
 
         return [
-            'id' => 'inc-'.$empleado->id.'-'.$fecha->toDateString().'-'.$jornada,
+            'id' => 'inc-'.$empleado->id.'-'.$fecha->toDateString().'-'.$jornada.($esSalida ? '-salida' : ''),
             'tipo' => 'incompleta',
             'empleado_id' => $empleado->id,
             'nombre' => $empleado->nombre_completo ?: 'Empleado',
@@ -468,8 +518,8 @@ class LlegadaTardeService
             'fecha' => $fecha,
             'dia_label' => $this->diaCorto($fecha),
             'jornada' => $jornada,
-            'hora_label' => 'Debía entrar',
-            'entrada' => $entrada,
+            'hora_label' => $esSalida ? 'Debía salir' : 'Debía entrar',
+            'entrada' => $programada,
             'marco' => '—',
             'minutos' => 0,
             'tarde_label' => 'Sin marca',
@@ -477,10 +527,15 @@ class LlegadaTardeService
             'respaldo_label' => 'Incompleta',
             'motivo' => $novedad?->motivo,
             'titulo_detalle' => 'MARCACIÓN INCOMPLETA',
-            'mensaje' => 'No hay entrada registrada para la jornada '.$jornada
+            'mensaje' => ($esSalida
+                ? 'No hay salida registrada para la jornada '.$jornada
+                : 'No hay entrada registrada para la jornada '.$jornada)
                 .($novedad ? ' · había novedad: '.$novedad->motivo : ''),
-            'pie' => 'El empleado tenía horario este día y no alcanzó a marcar la entrada'
-                .($novedad ? '. Existe novedad, pero no hay marcación de entrada.' : '.'),
+            'pie' => $esSalida
+                ? 'El empleado marcó la entrada de la jornada '.$jornada.' y no alcanzó a marcar la salida'
+                    .($novedad ? '. Existe novedad, pero no hay marcación de salida.' : '.')
+                : 'El empleado tenía horario este día y no alcanzó a marcar la entrada'
+                    .($novedad ? '. Existe novedad, pero no hay marcación de entrada.' : '.'),
         ];
     }
 

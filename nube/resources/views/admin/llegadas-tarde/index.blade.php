@@ -56,7 +56,7 @@
                 Franja <em class="lg-novedad">verde</em>: novedad.
                 <em class="lg-permiso">ámbar</em>: permiso.
                 <em class="lg-sin">granate</em>: sin respaldo.
-                <em class="lg-incompleta">azul</em>: no marcó la entrada.
+                <em class="lg-incompleta">azul</em>: no marcó entrada o salida.
                 <em class="lg-temprano">verde azulado</em>: salió antes de la hora.
             </p>
         </div>
