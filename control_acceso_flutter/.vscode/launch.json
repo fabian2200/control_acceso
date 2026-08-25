@@ -11,6 +11,12 @@
             "type": "dart"
         },
         {
+            "name": "control_acceso_flutter (Flutter 8483A)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "A06B4A94AF03463"
+        },
+        {
             "name": "control_acceso_flutter (profile mode)",
             "request": "launch",
             "type": "dart",
