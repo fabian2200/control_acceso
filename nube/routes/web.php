@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\LlegadaTardeController;
 use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\Admin\NovedadController;
+use App\Http\Controllers\Admin\SalidaOcasionalController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -46,5 +47,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/llegadas-tarde', [LlegadaTardeController::class, 'index'])->name('llegadas-tarde.index');
         Route::get('/llegadas-tarde/pdf', [LlegadaTardeController::class, 'pdf'])->name('llegadas-tarde.pdf');
         Route::get('/llegadas-tarde/excel', [LlegadaTardeController::class, 'excel'])->name('llegadas-tarde.excel');
+
+        Route::get('/salidas-ocasionales', [SalidaOcasionalController::class, 'index'])->name('salidas-ocasionales.index');
+        Route::get('/salidas-ocasionales/pdf', [SalidaOcasionalController::class, 'pdf'])->name('salidas-ocasionales.pdf');
+        Route::get('/salidas-ocasionales/excel', [SalidaOcasionalController::class, 'excel'])->name('salidas-ocasionales.excel');
     });
 });

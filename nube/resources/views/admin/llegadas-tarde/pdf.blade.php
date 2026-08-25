@@ -17,8 +17,6 @@
         .sin { color: #9f1239; font-weight: 700; }
         .novedad { color: #15803d; font-weight: 700; }
         .permiso { color: #b45309; font-weight: 700; }
-        .diligencia { color: #6d28d9; font-weight: 700; }
-        .ocasional { color: #4338ca; font-weight: 700; }
         .incompleta { color: #1d4ed8; font-weight: 700; }
         .temprano { color: #0f766e; font-weight: 700; }
         .empty { color: #64748b; }
@@ -74,7 +72,7 @@
                         <td>{{ $fila['entrada'] }}</td>
                         <td>{{ $fila['marco'] }}</td>
                         <td class="{{ ($fila['tipo'] ?? '') === 'temprano' ? 'temprano' : '' }}">{{ $fila['tarde_label'] }}</td>
-                        <td class="{{ $fila['respaldo'] }}">{{ $fila['respaldo_label'] }}</td>
+                        <td class="{{ $fila['respaldo'] }}">{{ $fila['respaldo_label'] }}@if (($fila['respaldo'] ?? '') === 'permiso' && ! empty($fila['permiso_intervalo'])) · {{ $fila['permiso_intervalo'] }}@endif</td>
                         <td>{{ $fila['mensaje'] }}</td>
                     </tr>
                 @endforeach

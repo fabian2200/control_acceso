@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\LlegadaTardeService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -47,6 +48,25 @@ class Permiso extends Model
         }
 
         return rtrim(mb_substr($texto, 0, $max - 1)).'…';
+    }
+
+    public function intervaloHoras(): ?string
+    {
+        $inicio = $this->horaInicioFmt();
+        $fin = $this->horaFinFmt();
+        if ($inicio === '--:--' || $fin === '--:--') {
+            return null;
+        }
+
+        return $inicio.' – '.$fin;
+    }
+
+    public function motivoConIntervalo(int $max = 80): string
+    {
+        $motivo = $this->motivoResumen($max);
+        $intervalo = $this->intervaloHoras();
+
+        return $intervalo ? $motivo.' · '.$intervalo : $motivo;
     }
 
     public function horaInicioFmt(): string
@@ -107,6 +127,6 @@ class Permiso extends Model
 
         $hhmm = substr($digits, 0, 2).':'.substr($digits, 2, 2);
 
-        return \App\Services\LlegadaTardeService::horaLabel($hhmm);
+        return LlegadaTardeService::horaLabel($hhmm);
     }
 }

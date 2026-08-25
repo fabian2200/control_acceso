@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\AccesoHorarioItem;
 use App\Models\AccesoNovedad;
 use App\Models\AccesoRegistro;
-use App\Models\AccesoSalidaOcasional;
 use App\Models\AccesoTerminal;
 use App\Models\Empleado;
 use App\Models\Permiso;
@@ -46,7 +45,7 @@ class LlegadaTardeService
     {
         $anio = max(2000, $anio);
         $mes = min(12, max(1, $mes));
-        $respaldo = in_array($respaldo, ['todos', 'sin', 'novedad', 'permiso', 'diligencia', 'ocasional', 'incompleta', 'temprano'], true) ? $respaldo : 'todos';
+        $respaldo = in_array($respaldo, ['todos', 'sin', 'novedad', 'permiso', 'incompleta', 'temprano'], true) ? $respaldo : 'todos';
 
         $inicio = Carbon::create($anio, $mes, 1, 0, 0, 0, 'America/Bogota')->startOfMonth();
         $fin = $inicio->copy()->endOfMonth();
@@ -89,18 +88,10 @@ class LlegadaTardeService
                 'empleado.user',
                 'empleado.asignacionHorario.horario.items',
                 'horario.items',
-                'salidaOcasional.permiso',
             ])
             ->where('tipo', 'salida')
-            ->where(function ($qb) {
-                $qb->where('salio_temprano', '>', 0)
-                    ->orWhereHas('salidaOcasional', function ($q) {
-                        $q->where(function ($inner) {
-                            $inner->whereNotNull('permiso_id')
-                                ->orWhereRaw('LOWER(TRIM(motivo_texto)) = ?', ['diligencia empresarial']);
-                        });
-                    });
-            })
+            ->where('salio_temprano', '>', 0)
+            ->whereNull('salida_ocasional_id')
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
             ->when($empleadoId, fn ($qb) => $qb->where('empleado_id', $empleadoId))
@@ -159,7 +150,7 @@ class LlegadaTardeService
         $incompletas = array_filter($filas, fn ($f) => ($f['tipo'] ?? '') === 'incompleta');
         $incidencias = array_merge($tardes, $tempranos);
         $minutos = (int) array_sum(array_column($incidencias, 'minutos'));
-        $justificadas = count(array_filter($incidencias, fn ($f) => in_array($f['respaldo'], ['novedad', 'permiso', 'diligencia', 'ocasional'], true)));
+        $justificadas = count(array_filter($incidencias, fn ($f) => in_array($f['respaldo'], ['novedad', 'permiso'], true)));
         $sin = count(array_filter($incidencias, fn ($f) => $f['respaldo'] === 'sin'));
         $empleadosUnicos = count(array_unique(array_column($filas, 'empleado_id')));
 
@@ -297,14 +288,10 @@ class LlegadaTardeService
             $puntoPermiso,
         );
 
-        $ocasional = $esSalida ? $registro->salidaOcasional : null;
-        $ocasionalInfo = $this->respaldoOcasional($ocasional) ?? [];
-
-        $respaldo = $ocasionalInfo['respaldo']
-            ?? ($novedad ? 'novedad' : ($permiso ? 'permiso' : 'sin'));
-        $motivo = $ocasionalInfo['motivo']
-            ?? $novedad?->motivo
-            ?? ($permiso ? $permiso->motivoResumen(80) : null);
+        $respaldo = $novedad ? 'novedad' : ($permiso ? 'permiso' : 'sin');
+        $intervalo = $permiso?->intervaloHoras();
+        $motivo = $novedad?->motivo
+            ?? ($permiso ? $permiso->motivoConIntervalo(80) : null);
         $esperada = self::horaLabel($registro->hora_esperada);
         $marco = $esSalida
             ? self::horaLabel($registro->registrado_en ?? $registro->hora)
@@ -313,8 +300,7 @@ class LlegadaTardeService
             ? $this->minutosSalidaTemprano($registro)
             : (int) $registro->llego_tarde;
         $tipo = $esSalida ? 'temprano' : 'tarde';
-        $regreso = $ocasional ? self::horaLabel($ocasional->hora_regreso_esperada) : '—';
-        $autoriza = trim((string) ($ocasional?->autorizado_por ?? $novedad?->quien_autoriza ?? ''));
+        $autoriza = trim((string) ($novedad?->quien_autoriza ?? ''));
 
         return [
             'id' => $registro->id,
@@ -338,14 +324,11 @@ class LlegadaTardeService
             'respaldo_label' => match ($respaldo) {
                 'novedad' => 'Novedad',
                 'permiso' => 'Permiso',
-                'diligencia' => 'Diligencia',
-                'ocasional' => 'Ocasional',
                 default => 'Sin justificar',
             },
             'motivo' => $motivo,
+            'permiso_intervalo' => $intervalo,
             'titulo_detalle' => match (true) {
-                $respaldo === 'diligencia' => 'DILIGENCIA EMPRESARIAL',
-                $respaldo === 'ocasional' => 'SALIDA OCASIONAL',
                 $esSalida && $respaldo === 'sin' => 'SALIDA TEMPRANO',
                 $respaldo === 'novedad' => 'NOVEDAD',
                 $respaldo === 'permiso' => 'PERMISO',
@@ -353,63 +336,19 @@ class LlegadaTardeService
             },
             'mensaje' => match ($respaldo) {
                 'novedad' => ($motivo ?: 'Novedad').' · jornada '.$jornada.($autoriza !== '' ? ' · autoriza '.$autoriza : ''),
-                'permiso' => ($motivo ?: 'Permiso aprobado').' · jornada '.$jornada
-                    .($ocasional ? ' · salida ocasional, regreso '.$regreso : ''),
-                'diligencia' => 'Diligencia empresarial · jornada '.$jornada.' · regreso esperado '.$regreso
-                    .($autoriza !== '' ? ' · autoriza '.$autoriza : ''),
-                'ocasional' => ($motivo ?: 'Salida ocasional').' · jornada '.$jornada.' · regreso esperado '.$regreso,
+                'permiso' => ($motivo ?: 'Permiso aprobado').' · jornada '.$jornada,
                 default => $esSalida
                     ? 'Salió antes de la hora de salida de la jornada '.$jornada
                     : 'No hay permiso ni novedad para esta jornada',
             },
             'pie' => match ($respaldo) {
                 'novedad' => 'Hay novedad pendiente o aprobada en el kiosko para esta jornada.',
-                'permiso' => $ocasional
-                    ? 'La salida temprano está ligada a una salida ocasional con permiso de Workboard.'
-                    : 'Hay un permiso aprobado de Workboard que cubre esta jornada.',
-                'diligencia' => 'La salida temprano está ligada a una salida ocasional por diligencia empresarial.',
-                'ocasional' => 'La salida temprano está ligada a una salida ocasional registrada en el kiosko.',
+                'permiso' => 'Hay un permiso aprobado de Workboard que cubre esta jornada.',
                 default => $esSalida
-                    ? 'No hay permiso, diligencia ni novedad que cubra esta salida anticipada.'
+                    ? 'No hay permiso ni novedad que cubra esta salida anticipada.'
                     : 'No se encontró permiso aprobado ni novedad en el kiosko para este horario. Conviene verificar con el empleado.',
             },
         ];
-    }
-
-    /**
-     * @return array{respaldo:string, motivo:?string}|null
-     */
-    private function respaldoOcasional(?AccesoSalidaOcasional $ocasional): ?array
-    {
-        if ($ocasional === null) {
-            return null;
-        }
-
-        if ($ocasional->permiso_id || $ocasional->permiso) {
-            return [
-                'respaldo' => 'permiso',
-                'motivo' => $ocasional->permiso?->motivoResumen(80) ?: ($ocasional->motivo_texto ?: 'Permiso'),
-            ];
-        }
-
-        if ($this->esDiligenciaEmpresarial($ocasional->motivo_texto)) {
-            return [
-                'respaldo' => 'diligencia',
-                'motivo' => 'Diligencia empresarial',
-            ];
-        }
-
-        $motivo = trim((string) $ocasional->motivo_texto);
-
-        return [
-            'respaldo' => 'ocasional',
-            'motivo' => $motivo !== '' ? $motivo : 'Salida ocasional',
-        ];
-    }
-
-    private function esDiligenciaEmpresarial(mixed $motivo): bool
-    {
-        return mb_strtolower(trim((string) $motivo)) === 'diligencia empresarial';
     }
 
     private function minutosSalidaTemprano(AccesoRegistro $registro): int

@@ -8,7 +8,7 @@ class AppConfig {
 
   static const defaultApiUrl = String.fromEnvironment(
     'ACCESO_API_URL',
-    defaultValue: urlLocal,
+    defaultValue: url,
   );
 
   static const apiToken = String.fromEnvironment(

@@ -11,13 +11,13 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class LlegadaTardeExcelExporter
+class SalidaOcasionalExcelExporter
 {
     /**
      * @param  array{
      *   anio:int,
      *   mes:int,
-     *   kpis:array{total:int,temprano:int,justificadas:int,sin:int,incompletas:int,minutos:int,empleados:int},
+     *   kpis:array{total:int,minutos:int,empleados:int},
      *   filas:list<array<string,mixed>>
      * }  $informe
      */
@@ -30,15 +30,15 @@ class LlegadaTardeExcelExporter
         $libro = new Spreadsheet;
         $libro->getProperties()
             ->setCreator('Control de acceso')
-            ->setTitle('Informe de Asistencia Horaria')
-            ->setDescription('Informe completo de todos los empleados · '.$mesLabel);
+            ->setTitle('Regresos tarde de salidas ocasionales')
+            ->setDescription('Regresos tarde de salidas ocasionales · '.$mesLabel);
 
         $this->llenarResumen($libro->getActiveSheet(), $informe, $mesLabel, $generado, count($filas));
         $this->llenarDetalle($libro->createSheet(), $filas, $mesLabel);
 
         $libro->setActiveSheetIndex(0);
 
-        $archivo = 'asistencia-horaria-completo-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.xlsx';
+        $archivo = 'salidas-ocasionales-completo-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.xlsx';
 
         return response()->streamDownload(function () use ($libro) {
             $writer = new Xlsx($libro);
@@ -50,14 +50,14 @@ class LlegadaTardeExcelExporter
     }
 
     /**
-     * @param  array{kpis:array{total:int,temprano:int,justificadas:int,sin:int,incompletas:int,minutos:int,empleados:int}}  $informe
+     * @param  array{kpis:array{total:int,minutos:int,empleados:int}}  $informe
      */
     private function llenarResumen(Worksheet $hoja, array $informe, string $mesLabel, string $generado, int $filas): void
     {
         $hoja->setTitle('Resumen');
         $kpis = $informe['kpis'];
 
-        $hoja->setCellValue('A1', 'Informe de Asistencia Horaria');
+        $hoja->setCellValue('A1', 'Regresos tarde de salidas ocasionales');
         $hoja->mergeCells('A1:B1');
         $hoja->getStyle('A1')->getFont()->setBold(true)->setSize(16);
 
@@ -68,12 +68,8 @@ class LlegadaTardeExcelExporter
             ['Registros', $filas],
             [null, null],
             ['Indicador', 'Valor'],
-            ['Llegadas tarde', $kpis['total']],
-            ['Salidas temprano', $kpis['temprano'] ?? 0],
-            ['Justificadas', $kpis['justificadas']],
-            ['Sin justificar', $kpis['sin']],
-            ['Marcaciones incompletas', $kpis['incompletas']],
-            ['Tiempo acumulado', LlegadaTardeService::minutosLabel($kpis['minutos'])],
+            ['Regresos tarde', $kpis['total']],
+            ['Retraso acumulado', LlegadaTardeService::minutosLabel($kpis['minutos'])],
             ['Empleados', $kpis['empleados']],
         ], null, 'A2');
 
@@ -82,7 +78,7 @@ class LlegadaTardeExcelExporter
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setRGB('1E3A5F');
         $hoja->getStyle('A7:B7')->getFont()->getColor()->setRGB('FFFFFF');
-        $hoja->getStyle('A7:B14')->applyFromArray($this->bordes());
+        $hoja->getStyle('A7:B10')->applyFromArray($this->bordes());
         $hoja->getColumnDimension('A')->setWidth(28);
         $hoja->getColumnDimension('B')->setWidth(28);
     }
@@ -100,14 +96,14 @@ class LlegadaTardeExcelExporter
             'Horario',
             'Fecha',
             'Día',
-            'Jornada',
-            'Tipo',
-            'Programada',
-            'Marcó',
+            'Salió',
+            'Regreso esperado',
+            'Regresó',
             'Minutos',
-            'Desvío',
-            'Respaldo',
+            'Cumplimiento',
+            'Tipo',
             'Motivo',
+            'Autoriza',
             'Detalle',
         ];
         $hoja->fromArray($encabezados, null, 'A1');
@@ -115,11 +111,6 @@ class LlegadaTardeExcelExporter
         $datos = [];
         foreach ($filas as $fila) {
             $fecha = $fila['fecha'] instanceof Carbon ? $fila['fecha']->format('d/m/Y') : '';
-            $tipo = match ($fila['tipo'] ?? '') {
-                'incompleta' => 'Marcación incompleta',
-                'temprano' => 'Salida temprano',
-                default => 'Llegada tarde',
-            };
             $datos[] = [
                 $fila['nombre'],
                 $fila['identificacion'],
@@ -127,14 +118,14 @@ class LlegadaTardeExcelExporter
                 $fila['horario'] ?? '',
                 $fecha,
                 $fila['dia_label'],
-                $fila['jornada'],
-                $tipo,
-                $fila['entrada'],
-                $fila['marco'],
+                $fila['salio'],
+                $fila['esperado'],
+                $fila['regreso'],
                 (int) $fila['minutos'],
-                $fila['tarde_label'],
-                $fila['respaldo_label'].(! empty($fila['permiso_intervalo']) ? ' · '.$fila['permiso_intervalo'] : ''),
+                $fila['cumplimiento_label'],
+                $fila['motivo_label'].(! empty($fila['permiso_intervalo']) ? ' · '.$fila['permiso_intervalo'] : ''),
                 $fila['motivo'] ?? '',
+                $fila['autoriza'] ?? '',
                 $fila['mensaje'],
             ];
         }
@@ -158,7 +149,7 @@ class LlegadaTardeExcelExporter
             $hoja->getColumnDimension($col)->setAutoSize(true);
         }
 
-        $hoja->getHeaderFooter()->setOddHeader('&CInforme de Asistencia Horaria · '.$mesLabel.' · todos los empleados');
+        $hoja->getHeaderFooter()->setOddHeader('&CRegresos tarde · salidas ocasionales · '.$mesLabel.' · todos los empleados');
         $hoja->getHeaderFooter()->setOddFooter('&LControl de acceso&RPágina &P de &N');
     }
 
@@ -175,11 +166,8 @@ class LlegadaTardeExcelExporter
             }
             $fa = $a['fecha'] instanceof Carbon ? $a['fecha']->timestamp : 0;
             $fb = $b['fecha'] instanceof Carbon ? $b['fecha']->timestamp : 0;
-            if ($fa !== $fb) {
-                return $fa <=> $fb;
-            }
 
-            return ((int) $a['jornada']) <=> ((int) $b['jornada']);
+            return $fa <=> $fb;
         });
 
         return array_values($filas);

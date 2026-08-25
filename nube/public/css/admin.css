@@ -142,8 +142,10 @@ input:focus,select:focus{outline:2px solid #bfdbfe;border-color:#2563eb}
 .kpi-incompleta strong{color:#1d4ed8}
 .kpi-temprano strong{color:#0f766e}
 .kpi-temprano .card-icon{background:#f0fdfa;color:#0f766e}
+.kpi-ok strong{color:#15803d}
+.kpi-ok .card-icon{background:#ecfdf3;color:#15803d}
 
-.tarde-legend{margin:8px 0 0;color:#64748b;font-size:13px;max-width:640px}
+.tarde-legend{margin:8px 0 0;color:#64748b;font-size:13px;max-width:840px}
 .tarde-legend em{font-style:normal;font-weight:700}
 .lg-novedad{color:#15803d}
 .lg-permiso{color:#b45309}
@@ -163,14 +165,15 @@ input:focus,select:focus{outline:2px solid #bfdbfe;border-color:#2563eb}
 .chip-incompleta.is-on{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
 .chip-temprano.is-on{background:#f0fdfa;border-color:#99f6e4;color:#0f766e}
 .pill-novedad{background:#ecfdf3;color:#15803d}
-.pill-permiso{background:#fffbeb;color:#b45309}
+.pill-permiso{background:#fffbeb;color:#b45309;white-space:nowrap}
 .pill-diligencia{background:#f5f3ff;color:#6d28d9}
 .pill-ocasional{background:#eef2ff;color:#4338ca}
 .pill-sin{background:#fff1f2;color:#9f1239}
 .pill-incompleta{background:#eff6ff;color:#1d4ed8}
 .pill-horario{height:20px;padding:0 8px;background:#f1f5f9;color:#334155;font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.tarde-table-head,.tarde-row > summary{display:grid;grid-template-columns:minmax(220px,1.6fr) 110px 90px 90px 110px 140px;gap:12px;align-items:center}
+.tarde-table-head,.tarde-row > summary{display:grid;grid-template-columns:minmax(150px,1fr) 100px 88px 88px 88px minmax(230px,.95fr);gap:12px;align-items:center}
+.ocasional-table-head,.ocasional-table-head + .tarde-list .tarde-row > summary{grid-template-columns:minmax(150px,1fr) 88px 88px 88px 88px minmax(230px,.95fr)}
 .tarde-table-head{padding:0 18px 10px 26px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8}
 .tarde-list{display:flex;flex-direction:column;gap:8px}
 .tarde-row{border:1px solid #e2e8f0;border-radius:14px;background:#fff;overflow:hidden;border-left:6px solid #9f1239}
@@ -195,6 +198,15 @@ input:focus,select:focus{outline:2px solid #bfdbfe;border-color:#2563eb}
 .tarde-mins{color:#dc2626;font-weight:700}
 .tarde-incomp{color:#1d4ed8;font-weight:700}
 .tarde-temprano{color:#0f766e;font-weight:700}
+.tarde-ok{color:#15803d;font-weight:700}
+.tarde-row.is-a_tiempo{border-left-color:#16a34a}
+.tarde-row.is-tarde{border-left-color:#d97706}
+.tarde-row.is-abierta{border-left-color:#2563eb}
+.tarde-row.is-vencida{border-left-color:#9f1239}
+.tarde-row.is-a_tiempo .tarde-row-icon{background:#ecfdf3;color:#15803d}
+.tarde-row.is-tarde .tarde-row-icon{background:#fffbeb;color:#b45309}
+.tarde-row.is-abierta .tarde-row-icon{background:#eff6ff;color:#1d4ed8}
+.tarde-row.is-vencida .tarde-row-icon{background:#fff1f2;color:#9f1239}
 .tarde-badges{display:flex;flex-direction:column;align-items:flex-end;gap:6px;justify-self:end}
 .tarde-detail{padding:4px 18px 18px 16px;border-top:1px solid #f1f5f9}
 .tarde-detail-title{margin:12px 0 14px;font:700 13px/1.4 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#334155}

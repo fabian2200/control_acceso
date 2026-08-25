@@ -55,7 +55,6 @@
             <p class="tarde-legend">
                 Franja <em class="lg-novedad">verde</em>: novedad.
                 <em class="lg-permiso">ámbar</em>: permiso.
-                <em class="lg-diligencia">violeta</em>: diligencia empresarial.
                 <em class="lg-sin">granate</em>: sin respaldo.
                 <em class="lg-incompleta">azul</em>: no marcó la entrada.
                 <em class="lg-temprano">verde azulado</em>: salió antes de la hora.
@@ -90,7 +89,6 @@
         <a class="chip {{ $respaldo === 'sin' ? 'is-on chip-sin' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'sin' ? 'todos' : 'sin'])) }}"><i class="fas fa-times-circle"></i> Sin justificar</a>
         <a class="chip {{ $respaldo === 'novedad' ? 'is-on chip-novedad' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'novedad' ? 'todos' : 'novedad'])) }}"><i class="fas fa-clipboard"></i> Con novedad</a>
         <a class="chip {{ $respaldo === 'permiso' ? 'is-on chip-permiso' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'permiso' ? 'todos' : 'permiso'])) }}"><i class="fas fa-id-card"></i> Con permiso</a>
-        <a class="chip {{ $respaldo === 'diligencia' ? 'is-on chip-diligencia' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'diligencia' ? 'todos' : 'diligencia'])) }}"><i class="fas fa-briefcase"></i> Diligencia</a>
         <a class="chip {{ $respaldo === 'incompleta' ? 'is-on chip-incompleta' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'incompleta' ? 'todos' : 'incompleta'])) }}"><i class="fas fa-minus-circle"></i> Marcación incompleta</a>
         <a class="chip {{ $respaldo === 'temprano' ? 'is-on chip-temprano' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'temprano' ? 'todos' : 'temprano'])) }}"><i class="fas fa-sign-out-alt"></i> Salida temprano</a>
         <button type="button" class="chip" id="btnExpandir"><i class="fas fa-expand-alt"></i> Desplegar todo</button>
@@ -114,8 +112,6 @@
                         <span class="tarde-emp">
                             <span class="card-icon tarde-row-icon">
                                 <i class="fas {{ match (true) {
-                                    ($fila['respaldo'] ?? '') === 'diligencia' => 'fa-briefcase',
-                                    ($fila['respaldo'] ?? '') === 'ocasional' => 'fa-walking',
                                     ($fila['tipo'] ?? '') === 'temprano' => 'fa-sign-out-alt',
                                     ($fila['respaldo'] ?? '') === 'novedad' => 'fa-clipboard',
                                     ($fila['respaldo'] ?? '') === 'permiso' => 'fa-id-card',
@@ -138,7 +134,7 @@
                         } }}">{{ $fila['tarde_label'] }}</span>
                         <span class="tarde-badges">
                             <span class="pill pill-horario">{{ $fila['horario'] }}</span>
-                            <span class="pill pill-{{ $fila['respaldo'] }}">{{ $fila['respaldo_label'] }}</span>
+                            <span class="pill pill-{{ $fila['respaldo'] }}">{{ $fila['respaldo_label'] }}@if (($fila['respaldo'] ?? '') === 'permiso' && ! empty($fila['permiso_intervalo'])) · {{ $fila['permiso_intervalo'] }}@endif</span>
                         </span>
                     </summary>
                     <div class="tarde-detail">
