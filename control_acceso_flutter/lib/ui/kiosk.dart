@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../config.dart';
+import '../data/camara_permiso.dart';
 import '../data/db.dart';
 import '../domain/acceso_service.dart';
 import '../domain/hora_fmt.dart';
@@ -411,6 +412,7 @@ class KioskController extends ChangeNotifier {
   Future<void> volverAccion() => _cargarAccion();
 
   void volverMotivo() {
+    error = null;
     screen = KioskScreen.motivo;
     notifyListeners();
   }
@@ -421,6 +423,7 @@ class KioskController extends ChangeNotifier {
   }
 
   void volverHora() {
+    error = null;
     screen = mandadoDesdeLista ? KioskScreen.mandadoEmpleado : KioskScreen.mandado;
     notifyListeners();
   }
@@ -498,6 +501,12 @@ class KioskController extends ChangeNotifier {
   }
 
   Future<void> elegirPermiso(PermisoHoy permiso) async {
+    if (!_acceso.horaRegresoEsValida(permiso.horaFin == '--:--' ? null : permiso.horaFinDigitos)) {
+      error = 'La hora de regreso esperada debe ser posterior a la hora actual.';
+      notifyListeners();
+      return;
+    }
+    error = null;
     tipo = 'salida_ocasional';
     permisoId = permiso.id;
     motivoTexto = permiso.motivo;
@@ -506,6 +515,12 @@ class KioskController extends ChangeNotifier {
   }
 
   Future<void> guardarHora(String digits) async {
+    if (!_acceso.horaRegresoEsValida(digits)) {
+      error = 'La hora de regreso esperada debe ser posterior a la hora actual.';
+      notifyListeners();
+      return;
+    }
+    error = null;
     tipo = 'salida_ocasional';
     horaRegreso = digits;
     _irACamara();
@@ -579,6 +594,12 @@ class KioskController extends ChangeNotifier {
         horaRegreso: horaRegreso,
         foto: foto,
       );
+    } on StateError catch (e) {
+      busy = false;
+      final msg = e.message.trim();
+      error = msg.isNotEmpty ? msg : 'Esa marca no está disponible en este momento.';
+      await _cargarAccion();
+      return;
     } catch (_) {
       busy = false;
       error = 'Esa marca no está disponible en este momento.';
@@ -646,9 +667,22 @@ class KioskController extends ChangeNotifier {
   }
 }
 
-class KioskApp extends StatelessWidget {
+class KioskApp extends StatefulWidget {
   const KioskApp({super.key, required this.controller});
   final KioskController controller;
+
+  @override
+  State<KioskApp> createState() => _KioskAppState();
+}
+
+class _KioskAppState extends State<KioskApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(pedirPermisoCamaraAlInicio());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -656,7 +690,7 @@ class KioskApp extends StatelessWidget {
       title: 'Control de Acceso',
       debugShowCheckedModeBanner: false,
       theme: kioskTheme(),
-      home: KioskShell(controller: controller),
+      home: KioskShell(controller: widget.controller),
     );
   }
 }
@@ -1125,7 +1159,7 @@ class _ReconocerScreenState extends State<ReconocerScreen> {
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 1500), () {
+    Future<void>.delayed(const Duration(seconds: 1), () {
       if (mounted) widget.controller.continuarReconocer();
     });
   }
@@ -1766,6 +1800,10 @@ class PermisosScreen extends StatelessWidget {
                       'Selecciona el permiso con el que sales. El regreso esperado será la hora de fin del permiso.',
                       style: TextStyle(fontSize: 24, color: KioskColors.muted),
                     ),
+                    if (controller.error != null) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(width: 720, child: AlertErr(controller.error!)),
+                    ],
                 ],
               ),
               ElevatedButton.icon(
@@ -1875,11 +1913,22 @@ class _HoraScreenState extends State<HoraScreen> {
     selected = _alMinuto(DateTime.now().add(const Duration(minutes: 30)));
   }
 
+  DateTime get _minRegreso {
+    final now = DateTime.now();
+    final min = DateTime(now.year, now.month, now.day, now.hour, now.minute)
+        .add(const Duration(minutes: 1));
+    if (min.year != selected.year || min.month != selected.month || min.day != selected.day) {
+      return DateTime(selected.year, selected.month, selected.day, 23, 59);
+    }
+    return DateTime(selected.year, selected.month, selected.day, min.hour, min.minute);
+  }
+
   DateTime _alMinuto(DateTime dt) => DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
 
   String get digits => DateFormat('HHmm').format(selected);
 
   void addMins(int mins) {
+    widget.controller.limpiarError();
     setState(() {
       selected = _alMinuto(DateTime.now().add(Duration(minutes: mins)));
       pickerGen++;
@@ -1905,6 +1954,10 @@ class _HoraScreenState extends State<HoraScreen> {
             ].join('. '),
             style: const TextStyle(fontSize: 24, color: KioskColors.muted),
           ),
+          if (widget.controller.error != null) ...[
+            const SizedBox(height: 12),
+            AlertErr(widget.controller.error!),
+          ],
           const SizedBox(height: 22),
           Container(
             width: double.infinity,
@@ -1941,8 +1994,8 @@ class _HoraScreenState extends State<HoraScreen> {
                     data: const CupertinoThemeData(
                       textTheme: CupertinoTextThemeData(
                         dateTimePickerTextStyle: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w600,
                           color: KioskColors.ink,
                         ),
                       ),
@@ -1952,7 +2005,11 @@ class _HoraScreenState extends State<HoraScreen> {
                       mode: CupertinoDatePickerMode.time,
                       use24hFormat: false,
                       initialDateTime: selected,
-                      onDateTimeChanged: (dt) => setState(() => selected = _alMinuto(dt)),
+                      minimumDate: _minRegreso,
+                      onDateTimeChanged: (dt) {
+                        widget.controller.limpiarError();
+                        setState(() => selected = _alMinuto(dt));
+                      },
                     ),
                   ),
                 ),
@@ -2166,13 +2223,13 @@ class _ConfirmacionScreenState extends State<ConfirmacionScreen> {
   @override
   void initState() {
     super.initState();
-    if (!widget.controller.confirmDesdeNovedad) {
-      Future<void>.delayed(const Duration(seconds: 4), () {
-        if (mounted && !widget.controller.confirmDesdeNovedad) {
-          widget.controller.reset();
-        }
-      });
-    }
+    if (widget.controller.confirmDesdeNovedad) return;
+    final varias = (widget.controller.confirm?.acciones.length ?? 0) > 1;
+    Future<void>.delayed(Duration(seconds: varias ? 4 : 2), () {
+      if (mounted && !widget.controller.confirmDesdeNovedad) {
+        widget.controller.reset();
+      }
+    });
   }
 
   @override
@@ -2180,6 +2237,7 @@ class _ConfirmacionScreenState extends State<ConfirmacionScreen> {
     final c = widget.controller.confirm!;
     final emp = widget.controller.empleado!;
     final desdeNovedad = widget.controller.confirmDesdeNovedad;
+    final esperaOk = !desdeNovedad && c.acciones.length > 1;
     return Center(
       child: SizedBox(
         width: 960,
@@ -2245,6 +2303,21 @@ class _ConfirmacionScreenState extends State<ConfirmacionScreen> {
                         backgroundColor: KioskColors.azul,
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ] else if (esperaOk) ...[
+                    const SizedBox(height: 28),
+                    ElevatedButton(
+                      onPressed: () => widget.controller.reset(),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(800, 60),
+                        backgroundColor: KioskColors.azul,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text(
+                        'OK, entendido',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
                       ),
                     ),
                   ],

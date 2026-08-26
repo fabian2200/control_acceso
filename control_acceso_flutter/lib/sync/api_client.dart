@@ -65,6 +65,21 @@ class AccesoApi {
     return body;
   }
 
+  Future<Map<String, dynamic>> pullSemilla() async {
+    final base = await baseUrl;
+    final res = await http
+        .get(Uri.parse('$base/api/sync/semilla'), headers: await _headers())
+        .timeout(const Duration(seconds: 120));
+    if (res.statusCode != 200) {
+      throw Exception('semilla HTTP ${res.statusCode}');
+    }
+    final body = jsonDecode(res.body);
+    if (body is! Map<String, dynamic> || body['ok'] != true) {
+      throw Exception('semilla inválida');
+    }
+    return body;
+  }
+
   Future<Map<String, dynamic>> logsMes({required int empleadoId, required int anio, required int mes}) async {
     final base = await baseUrl;
     final uri = Uri.parse('$base/api/sync/logs').replace(queryParameters: {

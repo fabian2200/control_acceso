@@ -23,7 +23,6 @@ class CameraScreen extends StatefulWidget {
 
 class _CameraScreenState extends State<CameraScreen> {
   CameraController? _cam;
-  int? _cuenta;
   String? _error;
   bool _capturando = false;
 
@@ -38,7 +37,6 @@ class _CameraScreenState extends State<CameraScreen> {
     if (mounted) {
       setState(() {
         _cam = null;
-        _cuenta = null;
         _capturando = false;
       });
     }
@@ -63,7 +61,9 @@ class _CameraScreenState extends State<CameraScreen> {
         return;
       }
       setState(() => _cam = cam);
-      await _contarYCapturar();
+      await Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200));
+      if (!mounted || _cam == null) return;
+      await _capturar();
     } on CameraException catch (e) {
       if (mounted) {
         setState(() => _error = e.code == 'CameraAccessDenied'
@@ -75,21 +75,11 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
-  Future<void> _contarYCapturar() async {
-    for (final n in [3, 2, 1]) {
-      if (!mounted || _cam == null) return;
-      setState(() => _cuenta = n);
-      await Future<void>.delayed(const Duration(milliseconds: 900));
-    }
-    await _capturar();
-  }
-
   Future<void> _capturar() async {
     final cam = _cam;
     if (cam == null || !cam.value.isInitialized || _capturando) return;
     setState(() {
       _capturando = true;
-      _cuenta = null;
     });
     try {
       final shot = await cam.takePicture();
@@ -171,18 +161,6 @@ class _CameraScreenState extends State<CameraScreen> {
                 ),
                 border: Border.all(color: const Color(0x59FFFFFF), width: 3),
               ),
-              alignment: Alignment.center,
-              child: _cuenta != null
-                  ? Text(
-                      '$_cuenta',
-                      style: const TextStyle(
-                        fontSize: 160,
-                        fontWeight: FontWeight.w200,
-                        color: Colors.white,
-                        shadows: [Shadow(blurRadius: 40, color: Colors.black54)],
-                      ),
-                    )
-                  : null,
             ),
           ),
           if (_error != null)

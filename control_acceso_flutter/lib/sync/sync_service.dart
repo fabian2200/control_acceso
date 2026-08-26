@@ -79,6 +79,7 @@ class AccesoSync {
 
     try {
       await _pullCatalogo();
+      await _sembrarMesActual();
       await _pushMarcas();
       await _pushNovedades();
       await _pullNovedades();
@@ -128,6 +129,157 @@ class AccesoSync {
       'cursor': data['server_time']?.toString(),
       'updated_at': DateTime.now().toIso8601String(),
     });
+  }
+
+  Future<bool> _necesitaSemilla() async {
+    final ya = await _db.setting('semilla_mes');
+    if (ya != null && ya.isNotEmpty) return false;
+    final db = await _db.database;
+    final r = await db.rawQuery('SELECT COUNT(*) c FROM acceso_registros');
+    final o = await db.rawQuery('SELECT COUNT(*) c FROM acceso_salidas_ocasionales');
+    final n = await db.rawQuery('SELECT COUNT(*) c FROM acceso_novedades');
+    return (r.first['c'] as int? ?? 0) == 0 &&
+        (o.first['c'] as int? ?? 0) == 0 &&
+        (n.first['c'] as int? ?? 0) == 0;
+  }
+
+  Future<void> _sembrarMesActual() async {
+    if (!await _necesitaSemilla()) return;
+    final data = await _api.pullSemilla();
+    final stamp = DateTime.now().toIso8601String();
+
+    for (final item in (data['ocasionales'] as List?) ?? const []) {
+      if (item is Map) {
+        await _sembrarOcasional(Map<String, dynamic>.from(item), stamp);
+      }
+    }
+    for (final item in (data['registros'] as List?) ?? const []) {
+      if (item is Map) {
+        await _sembrarRegistro(Map<String, dynamic>.from(item), stamp);
+      }
+    }
+    for (final item in (data['novedades'] as List?) ?? const []) {
+      if (item is Map) {
+        await _sembrarNovedad(Map<String, dynamic>.from(item), stamp);
+      }
+    }
+
+    final mes = data['mes']?.toString();
+    await _db.setSetting(
+      'semilla_mes',
+      (mes != null && mes.isNotEmpty) ? mes : _mesActual(),
+    );
+  }
+
+  Future<void> _sembrarOcasional(Map<String, dynamic> map, String stamp) async {
+    final empleadoId = map['empleado_id'];
+    final salidaEn = _aStamp(map['salida_en']);
+    if (empleadoId == null || salidaEn == null) return;
+    final existentes = await _db.query(
+      'acceso_salidas_ocasionales',
+      where: 'empleado_id = ? AND salida_en = ?',
+      whereArgs: [empleadoId, salidaEn],
+      limit: 1,
+    );
+    if (existentes.isNotEmpty) return;
+    await _db.insert('acceso_salidas_ocasionales', {
+      'empleado_id': empleadoId,
+      'id_horario': map['id_horario'],
+      'terminal_id': map['terminal_id'],
+      'motivo_texto': map['motivo_texto'],
+      'autorizado_por': map['autorizado_por'],
+      'permiso_id': map['permiso_id'],
+      'salida_en': salidaEn,
+      'hora_regreso_esperada': map['hora_regreso_esperada'] ?? '00:00:00',
+      'regreso_en': _aStamp(map['regreso_en']),
+      'minutos_tarde': _asInt(map['minutos_tarde']),
+      'foto_salida': map['foto_salida'] is String ? map['foto_salida'] : null,
+      'foto_regreso': map['foto_regreso'] is String ? map['foto_regreso'] : null,
+      'estado': map['estado'] ?? 'abierta',
+      'revisada_rrhh': _asInt(map['revisada_rrhh']),
+      'sincronizado': 1,
+      'created_at': stamp,
+      'updated_at': stamp,
+    });
+  }
+
+  Future<void> _sembrarRegistro(Map<String, dynamic> map, String stamp) async {
+    final empleadoId = map['empleado_id'];
+    final tipo = map['tipo']?.toString();
+    final fechaRaw = map['fecha']?.toString();
+    final registradoEn = _aStamp(map['registrado_en']);
+    if (empleadoId == null || tipo == null || tipo.isEmpty || fechaRaw == null || registradoEn == null) {
+      return;
+    }
+    final fecha = fechaRaw.length >= 10 ? fechaRaw.substring(0, 10) : fechaRaw;
+    final existentes = await _db.query(
+      'acceso_registros',
+      where: 'empleado_id = ? AND tipo = ? AND fecha = ? AND registrado_en = ?',
+      whereArgs: [empleadoId, tipo, fecha, registradoEn],
+      limit: 1,
+    );
+    if (existentes.isNotEmpty) return;
+    await _db.insert('acceso_registros', {
+      'empleado_id': empleadoId,
+      'id_horario': map['id_horario'],
+      'terminal_id': map['terminal_id'],
+      'salida_ocasional_id': await _idOcasionalLocal(map['salida_ocasional']),
+      'tipo': tipo,
+      'fecha': fecha,
+      'hora': map['hora'],
+      'registrado_en': registradoEn,
+      'foto': map['foto'] is String ? map['foto'] : null,
+      'hora_esperada': map['hora_esperada'],
+      'llego_tarde': _asInt(map['llego_tarde']),
+      'llego_temprano': _asInt(map['llego_temprano']),
+      'salio_temprano': _asInt(map['salio_temprano']),
+      'salio_tarde': _asInt(map['salio_tarde']),
+      'sincronizado': 1,
+      'created_at': stamp,
+      'updated_at': stamp,
+    });
+  }
+
+  Future<void> _sembrarNovedad(Map<String, dynamic> map, String stamp) async {
+    final uuid = '${map['uuid'] ?? ''}';
+    if (uuid.isEmpty) return;
+    final existentes = await _db.query(
+      'acceso_novedades',
+      where: 'uuid = ?',
+      whereArgs: [uuid],
+      limit: 1,
+    );
+    if (existentes.isNotEmpty) return;
+    final fechaRaw = map['fecha']?.toString();
+    await _db.insert('acceso_novedades', {
+      'uuid': uuid,
+      'empleado_id': map['empleado_id'],
+      'terminal_id': map['terminal_id'],
+      'fecha': fechaRaw != null && fechaRaw.length >= 10 ? fechaRaw.substring(0, 10) : fechaRaw,
+      'jornada': map['jornada'],
+      'hora_inicio_jornada': map['hora_inicio_jornada'],
+      'hora_fin_jornada': map['hora_fin_jornada'],
+      'motivo': map['motivo'] ?? 'Novedad',
+      'quien_autoriza': map['quien_autoriza'],
+      'aprobada': _aprobadaInt(map['aprobada']),
+      'sincronizado': 1,
+      'created_at': stamp,
+      'updated_at': stamp,
+    });
+  }
+
+  Future<int?> _idOcasionalLocal(Object? ref) async {
+    if (ref is! Map) return null;
+    final empleadoId = ref['empleado_id'];
+    final salidaEn = _aStamp(ref['salida_en']);
+    if (empleadoId == null || salidaEn == null) return null;
+    final rows = await _db.query(
+      'acceso_salidas_ocasionales',
+      where: 'empleado_id = ? AND salida_en = ?',
+      whereArgs: [empleadoId, salidaEn],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first['id'] as int?;
   }
 
   Future<void> _pushMarcas() async {
@@ -388,5 +540,36 @@ class AccesoSync {
   String _inicioMes() {
     final n = DateTime.now();
     return '${n.year.toString().padLeft(4, '0')}-${n.month.toString().padLeft(2, '0')}-01';
+  }
+
+  String _mesActual() {
+    final n = DateTime.now();
+    return '${n.year.toString().padLeft(4, '0')}-${n.month.toString().padLeft(2, '0')}';
+  }
+
+  String? _aStamp(Object? value) {
+    if (value == null) return null;
+    final raw = value.toString().trim();
+    if (raw.isEmpty) return null;
+    final parsed = DateTime.tryParse(raw.replaceFirst(' ', 'T'));
+    if (parsed == null) {
+      return raw.length >= 19 ? raw.substring(0, 19).replaceFirst('T', ' ') : raw;
+    }
+    final d = parsed.isUtc ? parsed.toLocal() : parsed;
+    String p(int n) => n.toString().padLeft(2, '0');
+    return '${d.year}-${p(d.month)}-${p(d.day)} ${p(d.hour)}:${p(d.minute)}:${p(d.second)}';
+  }
+
+  int _asInt(Object? value) {
+    if (value is bool) return value ? 1 : 0;
+    if (value is num) return value.toInt();
+    return int.tryParse('$value') ?? 0;
+  }
+
+  int? _aprobadaInt(Object? value) {
+    if (value == null) return null;
+    if (value is bool) return value ? 1 : 0;
+    if (value is num) return value.toInt();
+    return int.tryParse('$value');
   }
 }

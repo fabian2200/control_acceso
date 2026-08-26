@@ -11,6 +11,7 @@ class AccesoService {
 
   final AccesoDb _db;
   static const _horasAntes = 2;
+  static const _minutosAntesEntrada = 90;
   static const _horasDespuesEntrada = 1;
   static const _minutosGraciaPermiso = 5;
 
@@ -176,8 +177,21 @@ class AccesoService {
     final now = DateTime.now();
     return [
       for (final p in await _permisosAprobadosDelDia(userId, now))
-        if (_permisoEnRangoHorario(p, now)) p,
+        if (_permisoEnRangoHorario(p, now) && horaRegresoEsValida(p.horaFin == '--:--' ? null : p.horaFinDigitos)) p,
     ];
+  }
+
+  /// La hora de regreso esperada debe ser posterior a la hora actual del día.
+  bool horaRegresoEsValida(String? hora) {
+    final raw = (hora ?? '').trim();
+    if (raw.isEmpty || raw == '--:--') return true;
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return true;
+    final now = DateTime.now();
+    final esperado = _carbonHora(now, _normalizarHora(raw));
+    if (esperado == null) return true;
+    final actual = DateTime(now.year, now.month, now.day, now.hour, now.minute);
+    return esperado.isAfter(actual);
   }
 
   Future<List<PermisoHoy>> _permisosAprobadosDelDia(int userId, DateTime now) async {
@@ -327,6 +341,10 @@ class AccesoService {
       motivo = (m == null || m.isEmpty) ? 'Permiso' : m;
     }
     final hora = _normalizarHora(permiso != null ? _horaFinDigitos(permiso['hora_fin']) : horaRegreso);
+    final sinHoraPermiso = permiso != null && _fmtHora(permiso['hora_fin']) == '--:--';
+    if (!horaRegresoEsValida(sinHoraPermiso ? null : hora)) {
+      throw StateError('La hora de regreso esperada debe ser posterior a la hora actual.');
+    }
     final terminalId = await _db.terminalId(AppConfig.terminalCodigo);
     final idHorario = await _idHorario(empleadoId);
     final stamp = _stamp(now);
@@ -578,7 +596,7 @@ class AccesoService {
     if (centro == null) return {'enabled': true, 'motivo': null};
 
     if (slot['tipo'] == 'entrada') {
-      final desde = centro.subtract(const Duration(hours: _horasAntes));
+      final desde = centro.subtract(const Duration(minutes: _minutosAntesEntrada));
       final hasta = centro.add(const Duration(hours: _horasDespuesEntrada));
       final limite = DateTime(hasta.year, hasta.month, hasta.day, hasta.hour, hasta.minute, 59);
       if (now.isBefore(desde)) {
@@ -678,11 +696,12 @@ class AccesoService {
   String? _textoVentana(Map<String, String> slot, String? hora, DateTime now) {
     final centro = _carbonHora(now, hora);
     if (centro == null) return null;
-    final desde = centro.subtract(const Duration(hours: _horasAntes));
     if (slot['tipo'] == 'entrada') {
+      final desde = centro.subtract(const Duration(minutes: _minutosAntesEntrada));
       final hasta = centro.add(const Duration(hours: _horasDespuesEntrada));
       return '${HoraFmt.of(desde)} – ${HoraFmt.of(hasta)}';
     }
+    final desde = centro.subtract(const Duration(hours: _horasAntes));
     return 'Desde las ${HoraFmt.of(desde)}';
   }
 
