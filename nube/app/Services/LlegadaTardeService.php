@@ -452,11 +452,9 @@ class LlegadaTardeService
                                 );
                             }
                         }
-
-                        continue;
                     }
 
-                    if (! $horaSalida || ! $tieneEntrada || $tieneSalida) {
+                    if (! $horaSalida || $tieneSalida) {
                         continue;
                     }
 
@@ -531,11 +529,8 @@ class LlegadaTardeService
                 ? 'No hay salida registrada para la jornada '.$jornada
                 : 'No hay entrada registrada para la jornada '.$jornada)
                 .($novedad ? ' · había novedad: '.$novedad->motivo : ''),
-            'pie' => $esSalida
-                ? 'El empleado marcó la entrada de la jornada '.$jornada.' y no alcanzó a marcar la salida'
-                    .($novedad ? '. Existe novedad, pero no hay marcación de salida.' : '.')
-                : 'El empleado tenía horario este día y no alcanzó a marcar la entrada'
-                    .($novedad ? '. Existe novedad, pero no hay marcación de entrada.' : '.'),
+            'pie' => 'El empleado tenía horario este día y no alcanzó a marcar la '.($esSalida ? 'salida' : 'entrada')
+                .($novedad ? '. Existe novedad, pero no hay marcación de '.($esSalida ? 'salida' : 'entrada').'.' : '.'),
         ];
     }
 
