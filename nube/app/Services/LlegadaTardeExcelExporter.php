@@ -169,14 +169,14 @@ class LlegadaTardeExcelExporter
     private function ordenarFilas(array $filas): array
     {
         usort($filas, function (array $a, array $b) {
-            $n = strcmp((string) $a['nombre'], (string) $b['nombre']);
-            if ($n !== 0) {
-                return $n;
-            }
             $fa = $a['fecha'] instanceof Carbon ? $a['fecha']->timestamp : 0;
             $fb = $b['fecha'] instanceof Carbon ? $b['fecha']->timestamp : 0;
             if ($fa !== $fb) {
-                return $fa <=> $fb;
+                return $fb <=> $fa;
+            }
+            $n = strcmp((string) $a['nombre'], (string) $b['nombre']);
+            if ($n !== 0) {
+                return $n;
             }
 
             return ((int) $a['jornada']) <=> ((int) $b['jornada']);

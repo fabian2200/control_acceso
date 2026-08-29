@@ -241,18 +241,18 @@ CREATE TABLE IF NOT EXISTS acceso_novedades (
       'acceso_registros',
       where: 'empleado_id = ? AND fecha >= ? AND fecha <= ?',
       whereArgs: [empleadoId, from, to],
-      orderBy: 'registrado_en',
+      orderBy: 'registrado_en DESC',
     );
     final ocasionales = await query(
       'acceso_salidas_ocasionales',
       where: 'empleado_id = ? AND date(salida_en) >= ? AND date(salida_en) <= ?',
       whereArgs: [empleadoId, from, to],
-      orderBy: 'salida_en',
+      orderBy: 'salida_en DESC',
     );
     return [
       ...registros.map(_logRegistro),
       ...ocasionales.expand(_logOcasional),
-    ]..sort((a, b) => a.cuando.compareTo(b.cuando));
+    ]..sort((a, b) => b.cuando.compareTo(a.cuando));
   }
 
   LogItem _logRegistro(Map<String, Object?> row) {

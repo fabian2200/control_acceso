@@ -35,7 +35,6 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
-    final mes = DateFormat("MMMM yyyy", 'es').format(DateTime.now());
     final empleados = c.empleadosAdmin.where((e) {
       if (filtro.isEmpty) return true;
       final q = filtro.toLowerCase();
@@ -78,7 +77,7 @@ class _AdminScreenState extends State<AdminScreen> {
           const SizedBox(height: 22),
           Row(
             children: [
-              Text('Log de $mes', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: KioskColors.ink)),
+              const Text('Logs', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: KioskColors.ink)),
               const Spacer(),
               SizedBox(
                 width: 320,
@@ -147,29 +146,100 @@ class AdminLogScreen extends StatelessWidget {
   const AdminLogScreen({super.key, required this.controller});
   final KioskController controller;
 
+  Future<void> _elegirFecha(
+    BuildContext context, {
+    required DateTime actual,
+    required Future<void> Function(DateTime) onPicked,
+    required String helpText,
+  }) async {
+    final hoy = DateTime.now();
+    final limite = DateTime(hoy.year, hoy.month, hoy.day);
+    final inicial = actual.isAfter(limite) ? limite : actual;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: inicial,
+      firstDate: DateTime(2020),
+      lastDate: limite,
+      helpText: helpText,
+      cancelText: 'Cancelar',
+      confirmText: 'Aceptar',
+      fieldLabelText: 'Fecha',
+    );
+    if (picked != null) await onPicked(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final emp = controller.empleadoAdmin;
-    final mes = DateFormat("MMMM yyyy", 'es').format(DateTime.now());
+    final origen = controller.logsDesdeNube ? 'NUBE' : 'solo local';
     return Padding(
       padding: const EdgeInsets.fromLTRB(48, 36, 48, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Eyebrow('Log del mes'),
+          const Eyebrow('Logs'),
           const SizedBox(height: 10),
           Text(emp?.nombre ?? 'Empleado', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w600, color: KioskColors.ink)),
           const SizedBox(height: 6),
           Text(
-            'C.C. ${emp?.identificacion ?? ''} · $mes${controller.logsDesdeNube ? ' · NUBE' : ' · solo local'}',
+            'C.C. ${emp?.identificacion ?? ''} · ${controller.logsPeriodoLabel} · $origen',
             style: const TextStyle(fontSize: 18, color: KioskColors.muted),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _DateFilterChip(
+                  label: 'Desde',
+                  fecha: controller.logsDesde,
+                  onTap: controller.busy
+                      ? null
+                      : () => _elegirFecha(
+                            context,
+                            actual: controller.logsDesde,
+                            helpText: 'Desde',
+                            onPicked: controller.cambiarLogsDesde,
+                          ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _DateFilterChip(
+                  label: 'Hasta',
+                  fecha: controller.logsHasta,
+                  onTap: controller.busy
+                      ? null
+                      : () => _elegirFecha(
+                            context,
+                            actual: controller.logsHasta,
+                            helpText: 'Hasta',
+                            onPicked: controller.cambiarLogsHasta,
+                          ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 64,
+                child: OutlinedButton(
+                  onPressed: controller.busy ? null : controller.logsEsteMes,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: KioskColors.ink,
+                    side: const BorderSide(color: KioskColors.line),
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  child: const Text('Este mes'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           Expanded(
             child: controller.busy && controller.logsMes.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : controller.logsMes.isEmpty
-                    ? const Center(child: Text('Sin marcas este mes.', style: TextStyle(fontSize: 20, color: KioskColors.muted)))
+                    ? const Center(child: Text('Sin marcas en este periodo.', style: TextStyle(fontSize: 20, color: KioskColors.muted)))
                     : ListView.separated(
                         itemCount: controller.logsMes.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -209,6 +279,53 @@ class AdminLogScreen extends StatelessWidget {
           const SizedBox(height: 16),
           GhostButton(label: 'Volver', onTap: controller.volverAdmin, tall: true),
         ],
+      ),
+    );
+  }
+}
+
+class _DateFilterChip extends StatelessWidget {
+  const _DateFilterChip({required this.label, required this.fecha, this.onTap});
+
+  final String label;
+  final DateTime fecha;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: KioskColors.line),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined, size: 22, color: KioskColors.muted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: KioskColors.muted)),
+                    Text(
+                      DateFormat("d MMM yyyy", 'es').format(fecha),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: KioskColors.ink),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

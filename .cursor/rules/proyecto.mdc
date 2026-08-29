@@ -1,48 +1,57 @@
 ---
-description: Mapa del proyecto Control de Acceso para tareas de agente
+description: Mapa del repo Control de Acceso — apps, árbol y dónde tocar
 alwaysApply: true
 ---
 
 # Control de Acceso
 
-Kiosko táctil de recepción (offline-first) + panel admin/API en NUBE. Zona horaria `America/Bogota`. UI en español.
+Kiosko táctil offline-first + panel/API en NUBE. TZ `America/Bogota`. UI en español.
+**No existe** `kiosko/` Laravel. No reescribir el prototipo HTML de la raíz.
 
-## Apps (estado actual)
+## Árbol (código propio)
 
-- Kiosko: `control_acceso_flutter/` (Flutter, SQLite local). **No existe** `kiosko/` Laravel.
-- NUBE: `nube/` Laravel 12 / PHP 8.2 / MySQL `workboard`. Panel admin + API de sync.
-- Prototipo HTML de la raíz (`Control de Acceso - Recepción.dc.html`): no reescribirlo.
+```
+control_acceso/
+  workBoard.sql                          espejo MySQL (junto a acceso_control.sql)
+  Control de Acceso - Recepción.dc.html  prototipo; no tocar
+  .cursor/rules/                         proyecto, flutter-kiosko, esquema-sql
+  control_acceso_flutter/lib/
+    main.dart  config.dart               ACCESO_API_URL, TOKEN, TERMINAL, ADMIN_PIN
+    ui/        kiosk.dart (flujo), camera_screen, admin, novedad, widgets, theme
+    domain/    acceso_service.dart (marcas/puntualidad), logs, novedad, models, hora_fmt
+    data/      db.dart, schema.dart (SQLite), foto, camara_permiso
+    sync/      sync_service.dart, api_client.dart   pull/push cada 60 s
+  nube/
+    routes/api.php   /health, /sync/{catalogo,semilla,marcas,logs,novedades}
+    routes/web.php   /admin (guard admin_acceso), /media
+    app/Http/Controllers/Admin/   dashboard, horarios, empleados, novedades, logs,
+                                  llegadas-tarde, salidas-ocasionales, login
+    app/Http/Controllers/Api/     Health, Sync*
+    app/Services/     MarcaIngestService, NovedadIngestService, informes Excel/PDF
+    app/Models/       Acceso* + Workboard (empleados, users, permisos, cargos…)
+    app/Http/Middleware/AuthenticateTerminal.php   Bearer de acceso_terminales
+    database/sql/acceso_control.sql   fuente de verdad MySQL (NO migrations)
+    resources/views/admin/            blades del panel
+    config/acceso.php
+```
 
-## Dónde vive cada cosa
+## Dónde tocar
 
-- Flujo kiosko: `control_acceso_flutter/lib/ui/kiosk.dart` (`KioskController` + pantallas)
-- Lógica de marcas/puntualidad: `lib/domain/acceso_service.dart`
-- SQLite: `lib/data/db.dart` + `lib/data/schema.dart` (`acceso_control.db`)
-- Sync LOCAL→NUBE: `lib/sync/sync_service.dart` + `lib/sync/api_client.dart` (cada 60 s)
-- Config compile-time: `lib/config.dart` (`ACCESO_API_URL`, `ACCESO_API_TOKEN`, `ACCESO_TERMINAL`, `ACCESO_ADMIN_PIN`)
-- Admin NUBE (`/admin`): `nube/app/Http/Controllers/Admin/`, guard `admin_acceso`
-- API: `nube/routes/api.php` — `/api/health`, `/api/sync/catalogo`, `/api/sync/marcas`, `/api/sync/logs`
-- Ingest de marcas: `nube/app/Services/MarcaIngestService.php`
-- Auth API: Bearer token de `acceso_terminales.api_token` (middleware `terminal`)
+- Flujo kiosko: `control_acceso_flutter/lib/ui/kiosk.dart`
+- Reglas de marcas: `lib/domain/acceso_service.dart` (Flutter) o `MarcaIngestService` (NUBE)
+- SQLite: `lib/data/db.dart` + `schema.dart`. DDL MySQL: ver regla esquema-sql
+- Panel Flutter (`admin.dart`): PIN, URL NUBE, logs. Horarios/asignaciones: `nube/admin`
+- El kiosko no expone API; la API vive en `nube/`
 
 ## Flujo kiosko
 
-Cédula → reconocer → (regreso | acción) → [motivo/permisos/hora] → cámara → registrar → confirmación.
+Cédula → reconocer → (regreso | acción) → [motivo/permisos/hora] → cámara → registrar.
 
 Tipos: `entrada`, `salida`, `salida_ocasional`, `regreso`.
+Jornadas: `entrada_jornada_1`/`salida_jornada_1` y `_2`. Un solo bloque se llena en jornada 1.
+Marca nunca espera a NUBE. `sincronizado`: `0` pendiente, `1` confirmado.
 
-Horario del día: **jornada 1** y **jornada 2** (opcional). Un solo bloque se llena solo en jornada 1. Columnas: `entrada_jornada_1`/`salida_jornada_1` y `entrada_jornada_2`/`salida_jornada_2`.
+## Workboard (no alterar salvo SQL explícito)
 
-La marcación **nunca espera a la NUBE**. `sincronizado`: `0` pendiente, `1` confirmado. Catálogo se reemplaza en pull; marcas se empujan y luego se recortan las ya sync de días anteriores.
-
-## Tablas Workboard (no crear ni alterar salvo SQL explícito)
-
-`empleados`, `users`, `permisos`, `cargos`, `departamentos`, `empresas`. FKs legacy sin `*_id` (`empleado.cargo`, `users.empleado`, `permisos.empleado`). Modelos Workboard: `$timestamps = false`.
-
-## Convenciones
-
-- UI y copy en español. Kiosko landscape / immersive.
-- Negocio de marcas solo en `AccesoService` (Flutter) o `MarcaIngestService` (NUBE). Controladores PHP delgados.
-- El kiosko no expone API JSON; la API vive en `nube/`.
-- Panel Flutter (`admin.dart`) es local (PIN, URL NUBE, logs). Horarios/asignaciones se editan en `nube/admin`.
----
+Tablas: `empleados`, `users`, `permisos`, `cargos`, `departamentos`, `empresas`.
+FKs legacy sin `*_id`. Modelos: `$timestamps = false`.

@@ -11,16 +11,42 @@ class LogsService {
   final AccesoApi _api;
   final AccesoDb _db;
 
-  Future<({List<LogItem> items, bool desdeNube})> mes(int empleadoId) async {
-    final now = DateTime.now();
-    final inicio = DateTime(now.year, now.month, 1);
-    final fin = DateTime(now.year, now.month + 1, 0);
+  Future<({List<LogItem> items, bool desdeNube})> rango(
+    int empleadoId, {
+    required DateTime desde,
+    required DateTime hasta,
+  }) async {
+    var inicio = DateTime(desde.year, desde.month, desde.day);
+    var fin = DateTime(hasta.year, hasta.month, hasta.day);
+    if (inicio.isAfter(fin)) {
+      final tmp = inicio;
+      inicio = fin;
+      fin = tmp;
+    }
     try {
-      final data = await _api.logsMes(empleadoId: empleadoId, anio: now.year, mes: now.month);
-      return (items: _desdeApi(data), desdeNube: true);
+      final items = <LogItem>[];
+      var cursor = DateTime(inicio.year, inicio.month, 1);
+      final ultimo = DateTime(fin.year, fin.month, 1);
+      while (!cursor.isAfter(ultimo)) {
+        final data = await _api.logsMes(empleadoId: empleadoId, anio: cursor.year, mes: cursor.month);
+        items.addAll(_desdeApi(data));
+        cursor = DateTime(cursor.year, cursor.month + 1, 1);
+      }
+      return (items: _filtrar(items, inicio, fin), desdeNube: true);
     } catch (_) {
       return (items: await _db.logsMesLocal(empleadoId, inicio, fin), desdeNube: false);
     }
+  }
+
+  List<LogItem> _filtrar(List<LogItem> items, DateTime inicio, DateTime fin) {
+    final from = DateTime(inicio.year, inicio.month, inicio.day);
+    final to = DateTime(fin.year, fin.month, fin.day);
+    final filtrados = items.where((item) {
+      final dia = DateTime(item.cuando.year, item.cuando.month, item.cuando.day);
+      return !dia.isBefore(from) && !dia.isAfter(to);
+    }).toList();
+    filtrados.sort((a, b) => b.cuando.compareTo(a.cuando));
+    return filtrados;
   }
 
   List<LogItem> _desdeApi(Map<String, dynamic> data) {
@@ -79,7 +105,7 @@ class LogsService {
         ));
       }
     }
-    items.sort((a, b) => a.cuando.compareTo(b.cuando));
+    items.sort((a, b) => b.cuando.compareTo(a.cuando));
     return items;
   }
 

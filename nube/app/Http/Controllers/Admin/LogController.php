@@ -70,21 +70,21 @@ class LogController extends Controller
             ->where('empleado_id', $empleado->id)
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
-            ->orderBy('registrado_en')
+            ->orderByDesc('registrado_en')
             ->get();
 
         $ocasionales = AccesoSalidaOcasional::query()
             ->where('empleado_id', $empleado->id)
             ->whereBetween('salida_en', [$inicio, $fin])
-            ->orderBy('salida_en')
+            ->orderByDesc('salida_en')
             ->get();
 
         $novedades = AccesoNovedad::query()
             ->where('empleado_id', $empleado->id)
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
-            ->orderBy('fecha')
-            ->orderBy('jornada')
+            ->orderByDesc('fecha')
+            ->orderByDesc('jornada')
             ->get();
 
         $items = $this->timeline($registros, $ocasionales, $novedades);
@@ -185,7 +185,7 @@ class LogController extends Controller
             ];
         }
 
-        usort($items, fn ($a, $b) => $a['cuando'] <=> $b['cuando']);
+        usort($items, fn ($a, $b) => $b['cuando'] <=> $a['cuando']);
 
         return $items;
     }

@@ -67,8 +67,8 @@ class LlegadaTardeService
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
             ->when($empleadoId, fn ($qb) => $qb->where('empleado_id', $empleadoId))
-            ->orderBy('fecha')
-            ->orderBy('hora')
+            ->orderByDesc('fecha')
+            ->orderByDesc('hora')
             ->get();
 
         $novedades = $this->novedadesPorClave($empleadoIds, $inicio, $fin);
@@ -93,8 +93,8 @@ class LlegadaTardeService
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
             ->when($empleadoId, fn ($qb) => $qb->where('empleado_id', $empleadoId))
-            ->orderBy('fecha')
-            ->orderBy('hora')
+            ->orderByDesc('fecha')
+            ->orderByDesc('hora')
             ->get();
 
         $salidasPorDia = $salidas->groupBy(function (AccesoRegistro $registro) {
@@ -125,7 +125,7 @@ class LlegadaTardeService
             $fa = $a['fecha'] instanceof Carbon ? $a['fecha']->timestamp : 0;
             $fb = $b['fecha'] instanceof Carbon ? $b['fecha']->timestamp : 0;
             if ($fa !== $fb) {
-                return $fa <=> $fb;
+                return $fb <=> $fa;
             }
             $n = strcmp((string) $a['nombre'], (string) $b['nombre']);
             if ($n !== 0) {

@@ -36,13 +36,13 @@ class SyncLogsController extends Controller
             ->where('empleado_id', $empleadoId)
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
-            ->orderBy('registrado_en')
+            ->orderByDesc('registrado_en')
             ->get(['tipo', 'fecha', 'hora', 'registrado_en', 'hora_esperada', 'llego_tarde', 'llego_temprano', 'salio_temprano', 'salio_tarde', 'foto']);
 
         $ocasionales = AccesoSalidaOcasional::query()
             ->where('empleado_id', $empleadoId)
             ->whereBetween('salida_en', [$inicio, $fin])
-            ->orderBy('salida_en')
+            ->orderByDesc('salida_en')
             ->get(['motivo_texto', 'autorizado_por', 'salida_en', 'hora_regreso_esperada', 'regreso_en', 'minutos_tarde', 'estado', 'foto_salida', 'foto_regreso']);
 
         return response()->json([

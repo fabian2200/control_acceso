@@ -306,7 +306,7 @@ class AccesoService {
     return Confirmacion(
       title: 'Salida registrada',
       time: HoraFmt.of(now),
-      color: (p['salio_tarde'] as int) > 0 ? ColorData.amber : ColorData.blue,
+      color: (p['salio_temprano'] as int) > 0 ? ColorData.blue : ColorData.green,
       pillText: _pillTexto('salida', p),
       pillBg: _pillBg('salida', p),
       pillFg: _pillFg('salida', p),
@@ -863,20 +863,17 @@ class AccesoService {
     if (hora == null) return resultado;
     resultado['hora_esperada'] = DateFormat('HH:mm:ss').format(hora);
     final limite = hora.add(Duration(minutes: gabela));
+    if (tipo == 'salida') {
+      // Salir después de la hora no se marca tarde; solo temprano o a tiempo.
+      if (now.isBefore(hora)) {
+        resultado['salio_temprano'] = hora.difference(now).inMinutes;
+      }
+      return resultado;
+    }
     if (now.isAfter(limite)) {
-      final minutos = now.difference(hora).inMinutes;
-      if (tipo == 'entrada') {
-        resultado['llego_tarde'] = minutos;
-      } else {
-        resultado['salio_tarde'] = minutos;
-      }
+      resultado['llego_tarde'] = now.difference(hora).inMinutes;
     } else if (now.isBefore(hora)) {
-      final minutos = hora.difference(now).inMinutes;
-      if (tipo == 'entrada') {
-        resultado['llego_temprano'] = minutos;
-      } else {
-        resultado['salio_temprano'] = minutos;
-      }
+      resultado['llego_temprano'] = hora.difference(now).inMinutes;
     }
     return resultado;
   }
@@ -1123,25 +1120,25 @@ class AccesoService {
   }
 
   String _pillTexto(String tipo, Map<String, Object?> p) {
-    final tarde = tipo == 'entrada' ? p['llego_tarde'] as int : p['salio_tarde'] as int;
     final temprano = tipo == 'entrada' ? p['llego_temprano'] as int : p['salio_temprano'] as int;
-    if (tarde > 0) return 'Tarde · $tarde min';
+    if (tipo == 'entrada') {
+      final tarde = p['llego_tarde'] as int;
+      if (tarde > 0) return 'Tarde · $tarde min';
+    }
     if (temprano > 0) return 'Temprano · $temprano min';
     return 'A tiempo';
   }
 
   Color _pillBg(String tipo, Map<String, Object?> p) {
-    final tarde = tipo == 'entrada' ? p['llego_tarde'] as int : p['salio_tarde'] as int;
     final temprano = tipo == 'entrada' ? p['llego_temprano'] as int : p['salio_temprano'] as int;
-    if (tarde > 0) return const Color(0xFFFFFBEB);
+    if (tipo == 'entrada' && (p['llego_tarde'] as int) > 0) return const Color(0xFFFFFBEB);
     if (temprano > 0) return const Color(0xFFEFF6FF);
     return const Color(0xFFECFDF3);
   }
 
   Color _pillFg(String tipo, Map<String, Object?> p) {
-    final tarde = tipo == 'entrada' ? p['llego_tarde'] as int : p['salio_tarde'] as int;
     final temprano = tipo == 'entrada' ? p['llego_temprano'] as int : p['salio_temprano'] as int;
-    if (tarde > 0) return const Color(0xFFB45309);
+    if (tipo == 'entrada' && (p['llego_tarde'] as int) > 0) return const Color(0xFFB45309);
     if (temprano > 0) return const Color(0xFF1D4ED8);
     return const Color(0xFF15803D);
   }

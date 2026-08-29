@@ -44,7 +44,7 @@ class SalidaOcasionalInformeService
             ->whereBetween('salida_en', [$inicio, $fin])
             ->where('minutos_tarde', '>', 0)
             ->when($empleadoId, fn ($qb) => $qb->where('empleado_id', $empleadoId))
-            ->orderBy('salida_en')
+            ->orderByDesc('salida_en')
             ->get();
 
         $filas = [];

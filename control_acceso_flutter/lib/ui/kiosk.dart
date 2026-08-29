@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart';
 
 import '../config.dart';
@@ -78,6 +79,8 @@ class KioskController extends ChangeNotifier {
   AdminEmpleado? empleadoAdmin;
   List<LogItem> logsMes = const [];
   bool logsDesdeNube = false;
+  DateTime logsDesde = _inicioMes();
+  DateTime logsHasta = _hoy();
   NovedadContexto? novedadContexto;
   String? novedadMotivo;
   String? novedadQuien;
@@ -143,6 +146,9 @@ class KioskController extends ChangeNotifier {
     horaRegreso = null;
     empleadoAdmin = null;
     logsMes = const [];
+    logsDesdeNube = false;
+    logsDesde = _inicioMes();
+    logsHasta = _hoy();
     busy = false;
     novedadContexto = null;
     novedadMotivo = null;
@@ -639,14 +645,64 @@ class KioskController extends ChangeNotifier {
     empleadoAdmin = empleadoSel;
     logsMes = const [];
     logsDesdeNube = false;
+    logsDesde = _inicioMes();
+    logsHasta = _hoy();
     screen = KioskScreen.adminLog;
+    await _cargarLogs();
+  }
+
+  Future<void> cambiarLogsDesde(DateTime fecha) async {
+    logsDesde = _soloDia(fecha);
+    if (logsDesde.isAfter(logsHasta)) logsHasta = logsDesde;
+    await _cargarLogs();
+  }
+
+  Future<void> cambiarLogsHasta(DateTime fecha) async {
+    logsHasta = _soloDia(fecha);
+    if (logsHasta.isBefore(logsDesde)) logsDesde = logsHasta;
+    await _cargarLogs();
+  }
+
+  Future<void> logsEsteMes() async {
+    logsDesde = _inicioMes();
+    logsHasta = _hoy();
+    await _cargarLogs();
+  }
+
+  int _logsCarga = 0;
+
+  Future<void> _cargarLogs() async {
+    final emp = empleadoAdmin;
+    if (emp == null) return;
+    final carga = ++_logsCarga;
     busy = true;
     notifyListeners();
-    final result = await _logs.mes(empleadoSel.id);
+    final result = await _logs.rango(emp.id, desde: logsDesde, hasta: logsHasta);
+    if (carga != _logsCarga || empleadoAdmin?.id != emp.id) return;
     logsMes = result.items;
     logsDesdeNube = result.desdeNube;
     busy = false;
     notifyListeners();
+  }
+
+  static DateTime _soloDia(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  static DateTime _hoy() {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
+
+  static DateTime _inicioMes() {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, 1);
+  }
+
+  String get logsPeriodoLabel {
+    final fmt = DateFormat("d MMM yyyy", 'es');
+    if (logsDesde.year == logsHasta.year && logsDesde.month == logsHasta.month && logsDesde.day == logsHasta.day) {
+      return fmt.format(logsDesde);
+    }
+    return '${fmt.format(logsDesde)} — ${fmt.format(logsHasta)}';
   }
 
   void volverAdmin() {
@@ -690,6 +746,13 @@ class _KioskAppState extends State<KioskApp> {
       title: 'Control de Acceso',
       debugShowCheckedModeBanner: false,
       theme: kioskTheme(),
+      locale: const Locale('es'),
+      supportedLocales: const [Locale('es')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: KioskShell(controller: widget.controller),
     );
   }
@@ -1258,18 +1321,18 @@ class _AccionScreenState extends State<AccionScreen> {
                   icon: const Icon(
                     Icons.logout_outlined,
                     size: 32,
-                    color: Color.fromARGB(255, 214, 20, 20),
+                    color: Color.fromARGB(255, 82, 82, 82),
                   ),
                   label: const Text(
                     'Cancelar y salir',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
-                      color: Color.fromARGB(255, 204, 29, 29),
+                      color: Color.fromARGB(255, 82, 82, 82),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 255, 230, 230),
+                    backgroundColor: const Color.fromARGB(255, 224, 224, 224),
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -1350,7 +1413,7 @@ class _ActionCard extends StatelessWidget {
     final occ = boton.clase == 'action-occ';
     final bg = switch (boton.clase) {
       'action-in' => KioskColors.green,
-      'action-out' => KioskColors.blue,
+      'action-out' => KioskColors.red,
       _ => KioskColors.amberBg,
     };
     final fg = occ ? KioskColors.amberText : Colors.white;
