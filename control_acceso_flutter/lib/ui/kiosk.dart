@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../config.dart';
 import '../data/camara_permiso.dart';
 import '../data/db.dart';
+import '../data/kiosk_lock.dart';
 import '../domain/acceso_service.dart';
 import '../domain/hora_fmt.dart';
 import '../domain/logs_service.dart';
@@ -737,6 +738,7 @@ class _KioskAppState extends State<KioskApp> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(pedirPermisoCamaraAlInicio());
+      unawaited(anclarKiosko());
     });
   }
 
@@ -769,49 +771,52 @@ class KioskShell extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        return Scaffold(
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.topCenter,
-                radius: 1.2,
-                colors: [Color(0xFF1B1F27), KioskColors.page],
+        return PopScope(
+          canPop: false,
+          child: Scaffold(
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.topCenter,
+                  radius: 1.2,
+                  colors: [Color(0xFF1B1F27), KioskColors.page],
+                ),
               ),
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: FittedBox(
-                  child: Container(
-                    width: width + 100,
-                    height: 900,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [KioskColors.frameTop, KioskColors.frameBottom],
-                      ),
-                      borderRadius: BorderRadius.circular(36),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0x8C000000), blurRadius: 90, offset: Offset(0, 40)),
-                      ],
-                    ),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: FittedBox(
                     child: Container(
-                      width: 1280,
-                      height: 800,
+                      width: width + 100,
+                      height: 900,
                       decoration: BoxDecoration(
-                        color: KioskColors.screen,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        children: [
-                          if (controller.screen != KioskScreen.cedula) const KioskHeader(),
-                          if (controller.screen != KioskScreen.cedula)
-                            const Divider(height: 1, color: KioskColors.line),
-                          Expanded(child: _ScreenHost(controller: controller)),
-                          _StatusBar(controller: controller),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [KioskColors.frameTop, KioskColors.frameBottom],
+                        ),
+                        borderRadius: BorderRadius.circular(36),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x8C000000), blurRadius: 90, offset: Offset(0, 40)),
                         ],
+                      ),
+                      child: Container(
+                        width: 1280,
+                        height: 800,
+                        decoration: BoxDecoration(
+                          color: KioskColors.screen,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          children: [
+                            if (controller.screen != KioskScreen.cedula) const KioskHeader(),
+                            if (controller.screen != KioskScreen.cedula)
+                              const Divider(height: 1, color: KioskColors.line),
+                            Expanded(child: _ScreenHost(controller: controller)),
+                            _StatusBar(controller: controller),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -828,6 +833,17 @@ class KioskShell extends StatelessWidget {
 class _StatusBar extends StatelessWidget {
   const _StatusBar({required this.controller});
   final KioskController controller;
+
+  static const _sep = Color(0x24FFFFFF);
+  static const _fg = Color(0xFFE2E8F0);
+  static const _muted = Color(0xFFCBD5E1);
+
+  Widget _divisor() => Container(
+        width: 1,
+        height: 22,
+        margin: const EdgeInsets.symmetric(horizontal: 18),
+        color: _sep,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -856,20 +872,23 @@ class _StatusBar extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   ui.etiquetaRed,
-                  style: const TextStyle(color: Color(0xFFE2E8F0), fontWeight: FontWeight.w600, fontSize: 15),
+                  style: const TextStyle(color: _fg, fontWeight: FontWeight.w600, fontSize: 15),
                 ),
               ],
             ),
           ),
-          const Spacer(),
+          _divisor(),
+          const KioskBatteryChip(),
+          _divisor(),
           Icon(
             ui.online ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
             size: 18,
             color: ui.online ? KioskColors.green : KioskColors.muted,
           ),
           const SizedBox(width: 8),
-          Text(ui.etiquetaSync, style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 15, fontWeight: FontWeight.w500)),
-          Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 22), color: const Color(0x24FFFFFF)),
+          Text(ui.etiquetaSync, style: const TextStyle(color: _muted, fontSize: 15, fontWeight: FontWeight.w500)),
+          const Spacer(),
+          _divisor(),
           Text(
             'Terminal ${AppConfig.terminalCodigo}  •  ${ui.etiquetaUltimaSync}  •  v2.4',
             style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14, letterSpacing: 0.3),

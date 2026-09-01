@@ -43,6 +43,7 @@
                 <em class="lg-diligencia">violeta</em>: diligencia.
                 <em class="lg-permiso">ámbar</em>: permiso.
                 <em class="lg-incompleta">índigo</em>: otro motivo.
+                Los festivos configurados no se incluyen.
             </p>
         </div>
     </div>

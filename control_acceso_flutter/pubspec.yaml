@@ -16,6 +16,7 @@ dependencies:
   path: ^1.9.1
   http: ^1.4.0
   connectivity_plus: ^7.3.1
+  battery_plus: ^7.1.1
   camera: ^0.12.0+2
   image: ^4.5.4
   flutter_localizations:

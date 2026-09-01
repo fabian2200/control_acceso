@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AccesoFestivo;
 use App\Models\AccesoSalidaOcasional;
 use App\Models\Empleado;
 use Carbon\Carbon;
@@ -47,9 +48,14 @@ class SalidaOcasionalInformeService
             ->orderByDesc('salida_en')
             ->get();
 
+        $festivos = AccesoFestivo::mapaEntre($inicio, $fin);
+
         $filas = [];
         foreach ($ocasionales as $ocasional) {
             $fila = $this->armarFila($ocasional, $ahora);
+            if (isset($festivos[$fila['fecha']->toDateString()])) {
+                continue;
+            }
             if ($fila['cumplimiento'] !== 'tarde') {
                 continue;
             }

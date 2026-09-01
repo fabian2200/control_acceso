@@ -58,6 +58,7 @@
                 <em class="lg-sin">granate</em>: sin respaldo.
                 <em class="lg-incompleta">azul</em>: no marcó entrada o salida.
                 <em class="lg-temprano">verde azulado</em>: salió antes de la hora.
+                Los festivos configurados no se incluyen.
             </p>
         </div>
     </div>

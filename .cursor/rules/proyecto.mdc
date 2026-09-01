@@ -24,7 +24,7 @@ control_acceso/
   nube/
     routes/api.php   /health, /sync/{catalogo,semilla,marcas,logs,novedades}
     routes/web.php   /admin (guard admin_acceso), /media
-    app/Http/Controllers/Admin/   dashboard, horarios, empleados, novedades, logs,
+    app/Http/Controllers/Admin/   dashboard, horarios, festivos, empleados, novedades, logs,
                                   llegadas-tarde, salidas-ocasionales, login
     app/Http/Controllers/Api/     Health, Sync*
     app/Services/     MarcaIngestService, NovedadIngestService, informes Excel/PDF
@@ -40,7 +40,7 @@ control_acceso/
 - Flujo kiosko: `control_acceso_flutter/lib/ui/kiosk.dart`
 - Reglas de marcas: `lib/domain/acceso_service.dart` (Flutter) o `MarcaIngestService` (NUBE)
 - SQLite: `lib/data/db.dart` + `schema.dart`. DDL MySQL: ver regla esquema-sql
-- Panel Flutter (`admin.dart`): PIN, URL NUBE, logs. Horarios/asignaciones: `nube/admin`
+- Panel Flutter (`admin.dart`): PIN, URL NUBE, logs. Horarios/asignaciones/festivos: `nube/admin`
 - El kiosko no expone API; la API vive en `nube/`
 
 ## Flujo kiosko

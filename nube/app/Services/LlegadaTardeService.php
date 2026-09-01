@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AccesoFestivo;
 use App\Models\AccesoHorarioItem;
 use App\Models\AccesoNovedad;
 use App\Models\AccesoRegistro;
@@ -101,15 +102,23 @@ class LlegadaTardeService
             return $registro->empleado_id.'|'.$this->fechaCarbon($registro->fecha)->toDateString();
         });
 
+        $festivos = AccesoFestivo::mapaEntre($inicio, $fin);
+
         $salidasTemprano = $salidas
             ->where('salio_temprano', '>', 0)
             ->whereNull('salida_ocasional_id');
 
         $filas = [];
         foreach ($entradas->where('llego_tarde', '>', 0) as $registro) {
+            if ($this->esFestivo($this->fechaCarbon($registro->fecha), $festivos)) {
+                continue;
+            }
             $filas[] = $this->armarFila($registro, $novedades, $permisos);
         }
         foreach ($salidasTemprano as $registro) {
+            if ($this->esFestivo($this->fechaCarbon($registro->fecha), $festivos)) {
+                continue;
+            }
             $fila = $this->armarFila($registro, $novedades, $permisos);
             if (($fila['tipo'] ?? '') === 'temprano' && (int) $fila['minutos'] <= 0) {
                 continue;
@@ -117,7 +126,7 @@ class LlegadaTardeService
             $filas[] = $fila;
         }
 
-        foreach ($this->filasIncompletas($empleados, $entradasPorDia, $salidasPorDia, $novedades, $permisos, $inicio, $fin, $ahora) as $fila) {
+        foreach ($this->filasIncompletas($empleados, $entradasPorDia, $salidasPorDia, $novedades, $permisos, $inicio, $fin, $ahora, $festivos) as $fila) {
             $filas[] = $fila;
         }
 
@@ -381,6 +390,7 @@ class LlegadaTardeService
      * @param  Collection<string, Collection<int, AccesoRegistro>>  $salidasPorDia
      * @param  Collection<int, AccesoNovedad>  $novedades
      * @param  Collection<int, Collection<int, Permiso>>  $permisos
+     * @param  array<string, true>  $festivos
      * @return list<array<string, mixed>>
      */
     private function filasIncompletas(
@@ -391,7 +401,8 @@ class LlegadaTardeService
         Collection $permisos,
         Carbon $inicio,
         Carbon $fin,
-        Carbon $ahora
+        Carbon $ahora,
+        array $festivos,
     ): array {
         $filas = [];
         $hasta = $fin->copy()->min($ahora->copy()->startOfDay());
@@ -411,6 +422,10 @@ class LlegadaTardeService
             }
 
             for ($dia = $desde->copy(); $dia->lte($hasta); $dia->addDay()) {
+                if ($this->esFestivo($dia, $festivos)) {
+                    continue;
+                }
+
                 $item = $horario->items->firstWhere('dia_semana', $dia->dayOfWeekIso);
                 if (! $item || $item->esDescanso()) {
                     continue;
@@ -688,6 +703,14 @@ class LlegadaTardeService
         }
 
         return Carbon::parse((string) $fecha, 'America/Bogota')->startOfDay();
+    }
+
+    /**
+     * @param  array<string, true>  $festivos
+     */
+    private function esFestivo(Carbon $fecha, array $festivos): bool
+    {
+        return isset($festivos[$fecha->toDateString()]);
     }
 
     private function carbonHora(Carbon $dia, mixed $hora): ?Carbon

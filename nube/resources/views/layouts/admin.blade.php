@@ -21,6 +21,7 @@
         <nav class="side-nav">
             <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'is-on' : '' }}"><i class="fas fa-home"></i> Inicio</a>
             <a href="{{ route('admin.horarios.index') }}" class="{{ request()->routeIs('admin.horarios.*') ? 'is-on' : '' }}"><i class="fas fa-clock"></i> Horarios</a>
+            <a href="{{ route('admin.festivos.index') }}" class="{{ request()->routeIs('admin.festivos.*') ? 'is-on' : '' }}"><i class="fas fa-calendar-day"></i> Festivos</a>
             <a href="{{ route('admin.empleados.index') }}" class="{{ request()->routeIs('admin.empleados.*') ? 'is-on' : '' }}"><i class="fas fa-users"></i> Empleados</a>
             <a href="{{ route('admin.novedades.index') }}" class="{{ request()->routeIs('admin.novedades.*') ? 'is-on' : '' }}"><i class="fas fa-clipboard-list"></i> Novedades</a>
             <a href="{{ route('admin.logs.index') }}" class="{{ request()->routeIs('admin.logs.*') ? 'is-on' : '' }}"><i class="fas fa-list-alt"></i> Logs</a>

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -65,6 +66,150 @@ class _KioskHeaderState extends State<KioskHeader> {
       ),
     );
   }
+}
+
+/// Batería horizontal de la barra de estado (nivel + % como en el kiosko).
+class KioskBatteryChip extends StatefulWidget {
+  const KioskBatteryChip({super.key});
+
+  @override
+  State<KioskBatteryChip> createState() => _KioskBatteryChipState();
+}
+
+class _KioskBatteryChipState extends State<KioskBatteryChip> {
+  final _battery = Battery();
+  int? _level;
+  BatteryState _state = BatteryState.unknown;
+  Timer? _timer;
+  StreamSubscription<BatteryState>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _leer();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _leer());
+    _sub = _battery.onBatteryStateChanged.listen((s) {
+      _state = s;
+      _leer();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _leer() async {
+    try {
+      final level = await _battery.batteryLevel;
+      if (!mounted) return;
+      setState(() => _level = level.clamp(0, 100));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _level = null);
+    }
+  }
+
+  Color get _color {
+    final n = _level ?? 100;
+    if (n <= 15) return const Color(0xFFF87171);
+    if (n <= 30) return const Color(0xFFFBBF24);
+    return const Color(0xFF4ADE80);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final charging = _state == BatteryState.charging;
+    final label = _level == null ? '--' : '$_level%';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _KioskBatteryIcon(level: _level ?? 0, color: _color, charging: charging),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: _color,
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _KioskBatteryIcon extends StatelessWidget {
+  const _KioskBatteryIcon({
+    required this.level,
+    required this.color,
+    required this.charging,
+  });
+
+  final int level;
+  final Color color;
+  final bool charging;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 30,
+      height: 14,
+      child: CustomPaint(
+        painter: _KioskBatteryPainter(level: level.clamp(0, 100), color: color),
+        child: charging
+            ? Icon(Icons.bolt, size: 11, color: color.computeLuminance() > 0.5 ? const Color(0xFF052E16) : Colors.white)
+            : null,
+      ),
+    );
+  }
+}
+
+class _KioskBatteryPainter extends CustomPainter {
+  _KioskBatteryPainter({required this.level, required this.color});
+
+  final int level;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const nubW = 2.6;
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0.7, 0.7, size.width - nubW - 2.2, size.height - 1.4),
+      const Radius.circular(2.8),
+    );
+    canvas.drawRRect(
+      body,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.35
+        ..color = color,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(size.width - nubW, size.height * 0.28, nubW, size.height * 0.44),
+        const Radius.circular(0.8),
+      ),
+      Paint()..color = color,
+    );
+    final inner = body.deflate(1.7);
+    final fillW = inner.width * (level / 100.0);
+    if (fillW > 0.5) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(inner.left, inner.top, fillW, inner.height),
+          const Radius.circular(1.4),
+        ),
+        Paint()..color = color,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _KioskBatteryPainter old) => old.level != level || old.color != color;
 }
 
 class KioskKeypad extends StatelessWidget {

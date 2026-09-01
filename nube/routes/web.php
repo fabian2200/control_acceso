@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EmpleadoController;
+use App\Http\Controllers\Admin\FestivoController;
 use App\Http\Controllers\Admin\HorarioController;
 use App\Http\Controllers\Admin\LlegadaTardeController;
 use App\Http\Controllers\Admin\LogController;
@@ -37,6 +38,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/horarios/{horario}/editar', [HorarioController::class, 'editar'])->name('horarios.editar');
         Route::put('/horarios/{horario}', [HorarioController::class, 'actualizar'])->name('horarios.actualizar');
         Route::delete('/horarios/{horario}', [HorarioController::class, 'eliminar'])->name('horarios.eliminar');
+
+        Route::get('/festivos', [FestivoController::class, 'index'])->name('festivos.index');
+        Route::get('/festivos/crear', [FestivoController::class, 'crear'])->name('festivos.crear');
+        Route::post('/festivos', [FestivoController::class, 'guardar'])->name('festivos.guardar');
+        Route::get('/festivos/{festivo}/editar', [FestivoController::class, 'editar'])->name('festivos.editar');
+        Route::put('/festivos/{festivo}', [FestivoController::class, 'actualizar'])->name('festivos.actualizar');
+        Route::delete('/festivos/{festivo}', [FestivoController::class, 'eliminar'])->name('festivos.eliminar');
 
         Route::get('/empleados', [EmpleadoController::class, 'index'])->name('empleados.index');
         Route::put('/empleados/{empleado}/horario', [EmpleadoController::class, 'asignar'])->name('empleados.asignar');

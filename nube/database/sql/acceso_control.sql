@@ -153,6 +153,16 @@ CREATE TABLE IF NOT EXISTS `acceso_novedades` (
   KEY `acceso_novedades_sincronizado` (`sincronizado`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `acceso_festivos` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `fecha` date NOT NULL,
+  `nombre` varchar(120) NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `acceso_festivos_fecha_unique` (`fecha`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO `acceso_terminales` (`codigo`,`nombre`,`ubicacion`,`activo`,`api_token`,`created_at`,`updated_at`)
 SELECT 'REC-01','Recepción','Torre Norte',1,'e329d6926b529b6fa6133580c19b3382fcf9d4bbda240850cceeba61058ed3ac',NOW(),NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `acceso_terminales` WHERE `codigo`='REC-01');
