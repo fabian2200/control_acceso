@@ -96,6 +96,7 @@ class LlegadaTardeExcelExporter
             'Empleado',
             'Cédula',
             'Cargo',
+            'Horario',
             'Fecha',
             'Día',
             'Jornada',
@@ -118,6 +119,7 @@ class LlegadaTardeExcelExporter
                 $fila['nombre'],
                 $fila['identificacion'],
                 $fila['cargo'],
+                $fila['horario'] ?? '',
                 $fecha,
                 $fila['dia_label'],
                 $fila['jornada'],
@@ -136,18 +138,18 @@ class LlegadaTardeExcelExporter
         }
 
         $ultima = max(2, count($datos) + 1);
-        $rango = 'A1:N'.$ultima;
-        $hoja->getStyle('A1:N1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
-        $hoja->getStyle('A1:N1')->getFill()
+        $rango = 'A1:O'.$ultima;
+        $hoja->getStyle('A1:O1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $hoja->getStyle('A1:O1')->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setRGB('1E3A5F');
-        $hoja->getStyle('A1:N1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $hoja->getStyle('A1:O1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $hoja->getStyle($rango)->applyFromArray($this->bordes());
         $hoja->setAutoFilter($rango);
         $hoja->freezePane('A2');
         $hoja->getRowDimension(1)->setRowHeight(22);
 
-        foreach (range('A', 'N') as $col) {
+        foreach (range('A', 'O') as $col) {
             $hoja->getColumnDimension($col)->setAutoSize(true);
         }
 

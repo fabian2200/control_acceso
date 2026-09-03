@@ -62,7 +62,7 @@ class LlegadaTardeService
         $empleadoIds = $empleados->pluck('id');
 
         $entradas = AccesoRegistro::query()
-            ->with(['empleado.cargoRel', 'empleado.user', 'horario.items'])
+            ->with(['empleado.cargoRel', 'empleado.user', 'empleado.asignacionHorario.horario', 'horario.items'])
             ->where('tipo', 'entrada')
             ->whereDate('fecha', '>=', $inicio->toDateString())
             ->whereDate('fecha', '<=', $fin->toDateString())
@@ -199,6 +199,9 @@ class LlegadaTardeService
             'nombre' => $empleado?->nombre_completo ?: 'Empleado',
             'identificacion' => $empleado?->identificacion ?? '',
             'cargo' => $empleado?->cargo_nombre ?? 'Empleado',
+            'horario' => $this->nombreHorario(
+                $registro->horario?->nombre ?? $empleado?->asignacionHorario?->horario?->nombre
+            ),
             'fecha' => $fecha,
             'dia_label' => $this->diaCorto($fecha),
             'jornada' => $jornada,
@@ -299,7 +302,7 @@ class LlegadaTardeService
                         continue;
                     }
 
-                    $filas[] = $this->armarFilaIncompleta($empleado, $dia->copy(), $jornada, $item, $novedades);
+                    $filas[] = $this->armarFilaIncompleta($empleado, $dia->copy(), $jornada, $item, $novedades, $horario->nombre);
                 }
             }
         }
@@ -316,7 +319,8 @@ class LlegadaTardeService
         Carbon $fecha,
         int $jornada,
         AccesoHorarioItem $item,
-        Collection $novedades
+        Collection $novedades,
+        ?string $horarioNombre = null
     ): array {
         $novedad = $novedades->get($empleado->id.'|'.$fecha->toDateString().'|'.$jornada);
         $entrada = $this->hhmm($item->{'entrada_jornada_'.$jornada});
@@ -328,6 +332,7 @@ class LlegadaTardeService
             'nombre' => $empleado->nombre_completo ?: 'Empleado',
             'identificacion' => $empleado->identificacion ?? '',
             'cargo' => $empleado->cargo_nombre ?? 'Empleado',
+            'horario' => $this->nombreHorario($horarioNombre ?? $empleado->asignacionHorario?->horario?->nombre),
             'fecha' => $fecha,
             'dia_label' => $this->diaCorto($fecha),
             'jornada' => $jornada,
@@ -344,6 +349,13 @@ class LlegadaTardeService
             'pie' => 'El empleado tenía horario este día y no alcanzó a marcar la entrada'
                 .($novedad ? '. Existe novedad, pero no hay marcación de entrada.' : '.'),
         ];
+    }
+
+    private function nombreHorario(?string $nombre): string
+    {
+        $nombre = trim((string) $nombre);
+
+        return $nombre !== '' ? $nombre : 'Sin horario';
     }
 
     private function fechaInicioFuncionamiento(): ?Carbon

@@ -132,7 +132,10 @@
                         <span>{{ $fila['entrada'] }}</span>
                         <span>{{ $fila['marco'] }}</span>
                         <span class="{{ ($fila['tipo'] ?? '') === 'incompleta' ? 'tarde-incomp' : 'tarde-mins' }}">{{ $fila['tarde_label'] }}</span>
-                        <span class="pill pill-{{ $fila['respaldo'] }}">{{ $fila['respaldo_label'] }}</span>
+                        <span class="tarde-badges">
+                            <span class="pill pill-horario">{{ $fila['horario'] }}</span>
+                            <span class="pill pill-{{ $fila['respaldo'] }}">{{ $fila['respaldo_label'] }}</span>
+                        </span>
                     </summary>
                     <div class="tarde-detail">
                         <p class="tarde-detail-title">{{ $fila['titulo_detalle'] }} — {{ $fila['mensaje'] }}</p>
@@ -152,6 +155,10 @@
                             <div>
                                 <dt>Cargo</dt>
                                 <dd>{{ $fila['cargo'] }}</dd>
+                            </div>
+                            <div>
+                                <dt>Horario</dt>
+                                <dd>{{ $fila['horario'] }}</dd>
                             </div>
                         </dl>
                         <p class="muted tarde-pie">{{ $fila['pie'] }}</p>

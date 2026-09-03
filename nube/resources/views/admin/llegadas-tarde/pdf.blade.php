@@ -45,6 +45,7 @@
                 <tr>
                     <th>Empleado</th>
                     <th>Cédula</th>
+                    <th>Horario</th>
                     <th>Día</th>
                     <th>Entrada</th>
                     <th>Marcó</th>
@@ -58,6 +59,7 @@
                     <tr>
                         <td>{{ $fila['nombre'] }}</td>
                         <td>{{ $fila['identificacion'] }}</td>
+                        <td>{{ $fila['horario'] }}</td>
                         <td>{{ $fila['dia_label'] }}</td>
                         <td>{{ $fila['entrada'] }}</td>
                         <td>{{ $fila['marco'] }}</td>
