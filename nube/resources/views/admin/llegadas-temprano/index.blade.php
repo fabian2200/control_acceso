@@ -57,37 +57,54 @@
     <div class="panel-head">
         <div>
             <h2>Ranking de llegadas temprano</h2>
-            <p class="tarde-legend">Los 6 empleados con más llegadas temprano en el mes. Si empatan, queda primero el nombre.</p>
+            <p class="tarde-legend">Los primeros 6 puestos del mes. Quienes tienen la misma cantidad comparten escalón: tres con 7 van juntos en el 1, y el siguiente con 6 es el 2.</p>
         </div>
     </div>
 
     @if (empty($ranking))
         <p class="empty">Nadie llegó antes de la hora en ese mes.</p>
     @else
-        <div class="table-wrap">
-            <table class="table ranking-table">
-                <thead>
-                    <tr>
-                        <th>Puesto</th>
-                        <th>Empleado</th>
-                        <th>Cédula</th>
-                        <th>Llegadas temprano</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($ranking as $fila)
-                        <tr class="{{ ! empty($fila['seleccionado']) ? 'is-sel' : '' }}">
-                            <td>{{ $fila['puesto'] }}</td>
-                            <td>
-                                <strong>{{ $fila['nombre'] }}</strong>
-                                <small class="muted">{{ $fila['cargo'] }}</small>
-                            </td>
-                            <td>{{ $fila['identificacion'] }}</td>
-                            <td class="tarde-ok">{{ $fila['veces'] }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+        @php
+            $porPuesto = collect($ranking)->groupBy('puesto');
+            $etiqueta = fn (int $veces) => $veces === 1 ? '1 llegada temprano' : $veces.' llegadas temprano';
+        @endphp
+        <div class="podio">
+            @foreach ([2, 1, 3] as $puesto)
+                @if ($porPuesto->has($puesto))
+                    <article class="podio-paso is-{{ $puesto }}">
+                        <div class="podio-nombres">
+                            @foreach ($porPuesto[$puesto] as $fila)
+                                <div class="podio-persona {{ ! empty($fila['seleccionado']) ? 'is-sel' : '' }}">
+                                    <strong>{{ $fila['nombre_corto'] }}</strong>
+                                </div>
+                            @endforeach
+                        </div>
+                        <div class="podio-base" style="background-image: url('{{ asset('images/'.$puesto.'.png') }}')">
+                            <span class="podio-veces">{{ $etiqueta((int) $porPuesto[$puesto]->first()['veces']) }}</span>
+                        </div>
+                    </article>
+                @endif
+            @endforeach
+        </div>
+        <div class="podio-lista">
+            @foreach ([4, 5, 6] as $puesto)
+                @foreach ($porPuesto->get($puesto, []) as $fila)
+                    <div class="podio-fila is-{{ $puesto }} {{ ! empty($fila['seleccionado']) ? 'is-sel' : '' }}">
+                        <span class="podio-puesto">{{ $puesto }}</span>
+                        <span class="podio-quien">
+                            <strong>{{ $fila['nombre_corto'] }}</strong>
+                        </span>
+                        <span class="podio-cedula">
+                            <small>Cédula</small>
+                            {{ $fila['identificacion'] }}
+                        </span>
+                        <span class="podio-pill">
+                            <b>{{ $fila['veces'] }}</b>
+                            <span>Llegadas temprano</span>
+                        </span>
+                    </div>
+                @endforeach
+            @endforeach
         </div>
     @endif
 </section>

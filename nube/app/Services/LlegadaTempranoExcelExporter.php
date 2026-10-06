@@ -84,7 +84,7 @@ class LlegadaTempranoExcelExporter
         $hoja->getStyle('A7:B7')->getFont()->getColor()->setRGB('FFFFFF');
         $hoja->getStyle('A7:B10')->applyFromArray($this->bordes());
 
-        $hoja->setCellValue('A12', 'Ranking · 6 con más llegadas temprano');
+        $hoja->setCellValue('A12', 'Ranking · primeros 6 puestos');
         $hoja->mergeCells('A12:E12');
         $hoja->getStyle('A12')->getFont()->setBold(true)->setSize(13);
 

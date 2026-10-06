@@ -31,7 +31,7 @@
         </tr>
     </table>
 
-    <h2>Ranking · 6 con más llegadas temprano</h2>
+    <h2>Ranking · primeros 6 puestos</h2>
     @if (empty($ranking))
         <p class="empty">Nadie llegó antes de la hora en ese mes.</p>
     @else

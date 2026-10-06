@@ -127,32 +127,35 @@ class LlegadaTempranoService
                 $porEmpleado[$id] = [
                     'empleado_id' => $id,
                     'nombre' => $fila['nombre'],
+                    'nombre_corto' => $fila['nombre_corto'],
                     'identificacion' => $fila['identificacion'],
                     'cargo' => $fila['cargo'],
                     'veces' => 0,
-                    'minutos' => 0,
                 ];
             }
             $porEmpleado[$id]['veces']++;
-            $porEmpleado[$id]['minutos'] += (int) $fila['minutos'];
         }
 
-        $ranking = array_values($porEmpleado);
-        usort($ranking, function (array $a, array $b) {
-            if ($a['veces'] !== $b['veces']) {
-                return $b['veces'] <=> $a['veces'];
+        $grupos = [];
+        foreach ($porEmpleado as $fila) {
+            $grupos[$fila['veces']][] = $fila;
+        }
+        krsort($grupos);
+
+        $ranking = [];
+        $puesto = 0;
+        foreach ($grupos as $grupo) {
+            $puesto++;
+            if ($puesto > 6) {
+                break;
             }
-
-            return strcmp((string) $a['nombre'], (string) $b['nombre']);
-        });
-        $ranking = array_slice($ranking, 0, 6);
-
-        foreach ($ranking as $i => &$fila) {
-            $fila['puesto'] = $i + 1;
-            $fila['seleccionado'] = $empleadoId !== null && (int) $fila['empleado_id'] === $empleadoId;
-            unset($fila['minutos']);
+            usort($grupo, fn (array $a, array $b) => strcmp((string) $a['nombre'], (string) $b['nombre']));
+            foreach ($grupo as $fila) {
+                $fila['puesto'] = $puesto;
+                $fila['seleccionado'] = $empleadoId !== null && (int) $fila['empleado_id'] === $empleadoId;
+                $ranking[] = $fila;
+            }
         }
-        unset($fila);
 
         return $ranking;
     }
@@ -172,6 +175,7 @@ class LlegadaTempranoService
             'id' => $registro->id,
             'empleado_id' => $registro->empleado_id,
             'nombre' => $empleado?->nombre_completo ?: 'Empleado',
+            'nombre_corto' => $this->nombreCorto($empleado),
             'identificacion' => $empleado?->identificacion ?? '',
             'cargo' => $empleado?->cargo_nombre ?? 'Empleado',
             'horario' => $horario !== '' ? $horario : 'Sin horario',
@@ -183,6 +187,22 @@ class LlegadaTempranoService
             'minutos' => $minutos,
             'temprano_label' => LlegadaTardeService::minutosLabel($minutos).' antes',
         ];
+    }
+
+    private function nombreCorto(?Empleado $empleado): string
+    {
+        $nombre = $this->primeraPalabra($empleado?->nombres);
+        $apellido = $this->primeraPalabra($empleado?->apellidos);
+        $corto = trim($nombre.' '.$apellido);
+
+        return $corto !== '' ? $corto : ($empleado?->nombre_completo ?: 'Empleado');
+    }
+
+    private function primeraPalabra(mixed $texto): string
+    {
+        $partes = preg_split('/\s+/', trim((string) $texto)) ?: [];
+
+        return (string) ($partes[0] ?? '');
     }
 
     private function itemDelDia(AccesoRegistro $registro, Carbon $fecha): ?AccesoHorarioItem
