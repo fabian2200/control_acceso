@@ -139,20 +139,18 @@ class LlegadaTempranoService
 
         $ranking = array_values($porEmpleado);
         usort($ranking, function (array $a, array $b) {
-            if ($a['minutos'] !== $b['minutos']) {
-                return $b['minutos'] <=> $a['minutos'];
-            }
             if ($a['veces'] !== $b['veces']) {
                 return $b['veces'] <=> $a['veces'];
             }
 
             return strcmp((string) $a['nombre'], (string) $b['nombre']);
         });
+        $ranking = array_slice($ranking, 0, 6);
 
         foreach ($ranking as $i => &$fila) {
             $fila['puesto'] = $i + 1;
-            $fila['promedio'] = $fila['veces'] > 0 ? (int) round($fila['minutos'] / $fila['veces']) : 0;
             $fila['seleccionado'] = $empleadoId !== null && (int) $fila['empleado_id'] === $empleadoId;
+            unset($fila['minutos']);
         }
         unset($fila);
 

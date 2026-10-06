@@ -63,6 +63,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/llegadas-tarde/excel', [LlegadaTardeController::class, 'excel'])->name('llegadas-tarde.excel');
 
         Route::get('/llegadas-temprano', [LlegadaTempranoController::class, 'index'])->name('llegadas-temprano.index');
+        Route::get('/llegadas-temprano/pdf', [LlegadaTempranoController::class, 'pdf'])->name('llegadas-temprano.pdf');
+        Route::get('/llegadas-temprano/excel', [LlegadaTempranoController::class, 'excel'])->name('llegadas-temprano.excel');
 
         Route::get('/salidas-ocasionales', [SalidaOcasionalController::class, 'index'])->name('salidas-ocasionales.index');
         Route::get('/salidas-ocasionales/pdf', [SalidaOcasionalController::class, 'pdf'])->name('salidas-ocasionales.pdf');

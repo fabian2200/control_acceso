@@ -4,20 +4,18 @@
 @section('crumb', 'Informe')
 @section('heading', 'Registros de Puntualidad')
 
+@section('actions')
+    <a href="{{ route('admin.llegadas-temprano.pdf', request()->query()) }}" class="btn-primary"><i class="fas fa-file-pdf"></i> Exportar PDF</a>
+    <a href="{{ route('admin.llegadas-temprano.excel', request()->only(['anio', 'mes'])) }}" class="btn-ghost btn-success"><i class="fas fa-file-excel"></i> Exportar Excel</a>
+@endsection
+
 @section('content')
-<div class="kpi-grid kpi-grid-4">
+<div class="kpi-grid">
     <article class="kpi kpi-ok">
         <div class="card-icon"><i class="fas fa-user-check"></i></div>
         <div class="kpi-body">
             <span>Llegadas temprano</span>
             <strong>{{ $kpis['total'] }}</strong>
-        </div>
-    </article>
-    <article class="kpi">
-        <div class="card-icon"><i class="fas fa-hourglass-half"></i></div>
-        <div class="kpi-body">
-            <span>Tiempo acumulado</span>
-            <strong>{{ \App\Services\LlegadaTardeService::minutosLabel($kpis['minutos']) }}</strong>
         </div>
     </article>
     <article class="kpi">
@@ -58,8 +56,8 @@
 <section class="panel tarde-panel">
     <div class="panel-head">
         <div>
-            <h2>Ranking de anticipación</h2>
-            <p class="tarde-legend">Ordenado por minutos acumulados antes de la hora de entrada. El puesto es del mes completo; el filtro de empleado solo marca a la persona.</p>
+            <h2>Ranking de llegadas temprano</h2>
+            <p class="tarde-legend">Los 6 empleados con más llegadas temprano en el mes. Si empatan, queda primero el nombre.</p>
         </div>
     </div>
 
@@ -73,9 +71,7 @@
                         <th>Puesto</th>
                         <th>Empleado</th>
                         <th>Cédula</th>
-                        <th>Veces</th>
-                        <th>Acumulado</th>
-                        <th>Promedio</th>
+                        <th>Llegadas temprano</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -87,9 +83,7 @@
                                 <small class="muted">{{ $fila['cargo'] }}</small>
                             </td>
                             <td>{{ $fila['identificacion'] }}</td>
-                            <td>{{ $fila['veces'] }}</td>
-                            <td class="tarde-ok">{{ \App\Services\LlegadaTardeService::minutosLabel($fila['minutos']) }}</td>
-                            <td>{{ \App\Services\LlegadaTardeService::minutosLabel($fila['promedio']) }}</td>
+                            <td class="tarde-ok">{{ $fila['veces'] }}</td>
                         </tr>
                     @endforeach
                 </tbody>
