@@ -50,16 +50,26 @@
 
 <section class="panel tarde-panel">
     <div class="panel-head tarde-head">
-        <div>
+        <div style="width: 100%;">
             <h2>Detalle de asistencia</h2>
-            <p class="tarde-legend">
-                Franja <em class="lg-novedad">verde</em>: novedad.
-                <em class="lg-permiso">ámbar</em>: permiso.
-                <em class="lg-sin">granate</em>: sin respaldo.
-                <em class="lg-incompleta">azul</em>: no marcó entrada o salida.
-                <em class="lg-temprano">verde azulado</em>: salió antes de la hora.
-                Los festivos configurados no se incluyen.
-            </p>
+            <table class="leyenda-franjas" style="width: 100%; border-collapse: collapse; max-width: 100% !important;">
+                <tbody style="width: 100%; border-collapse: collapse;">
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 4px 8px; width: 50%; border: 1px solid #e2e8f0;"><span class="leyenda-item"><span class="lg-dot lg-novedad" aria-hidden="true"></span><span>Novedad</span></span></td>
+                        <td style="padding: 4px 8px; width: 50%; border: 1px solid #e2e8f0;"><span class="leyenda-item"><span class="lg-dot lg-sin" aria-hidden="true"></span><span>Sin respaldo</span></span></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 4px 8px; width: 50%; border: 1px solid #e2e8f0;"><span class="leyenda-item"><span class="lg-dot lg-permiso" aria-hidden="true"></span><span>Permiso</span></span></td>
+                        <td style="padding: 4px 8px; width: 50%; border: 1px solid #e2e8f0;"><span class="leyenda-item"><span class="lg-dot lg-incompleta" aria-hidden="true"></span><span>No marcó entrada o salida</span></span></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 4px 8px; width: 50%; border: 1px solid #e2e8f0;"><span class="leyenda-item"><span class="lg-dot lg-ocasional" aria-hidden="true"></span><span>Salida ocasional en jornada 2. No cuenta como tarde.</span></span></td>
+                        <td style="padding: 4px 8px; width: 50%; border: 1px solid #e2e8f0;"><span class="leyenda-item"><span class="lg-dot lg-temprano" aria-hidden="true"></span><span>Salió antes de la hora</span></span></td>
+                    </tr>
+                </tbody>
+            </table>
+            <br>
+            <p class="tarde-legend">Los festivos configurados no se incluyen.</p>
         </div>
     </div>
 
@@ -90,6 +100,7 @@
         <a class="chip {{ $respaldo === 'sin' ? 'is-on chip-sin' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'sin' ? 'todos' : 'sin'])) }}"><i class="fas fa-times-circle"></i> Sin justificar</a>
         <a class="chip {{ $respaldo === 'novedad' ? 'is-on chip-novedad' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'novedad' ? 'todos' : 'novedad'])) }}"><i class="fas fa-clipboard"></i> Con novedad</a>
         <a class="chip {{ $respaldo === 'permiso' ? 'is-on chip-permiso' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'permiso' ? 'todos' : 'permiso'])) }}"><i class="fas fa-id-card"></i> Con permiso</a>
+        <a class="chip {{ $respaldo === 'ocasional' ? 'is-on chip-ocasional' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'ocasional' ? 'todos' : 'ocasional'])) }}"><i class="fas fa-walking"></i> Salida ocasional</a>
         <a class="chip {{ $respaldo === 'incompleta' ? 'is-on chip-incompleta' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'incompleta' ? 'todos' : 'incompleta'])) }}"><i class="fas fa-minus-circle"></i> Marcación incompleta</a>
         <a class="chip {{ $respaldo === 'temprano' ? 'is-on chip-temprano' : '' }}" href="{{ route('admin.llegadas-tarde.index', array_merge($base, ['respaldo' => $respaldo === 'temprano' ? 'todos' : 'temprano'])) }}"><i class="fas fa-sign-out-alt"></i> Salida temprano</a>
         <button type="button" class="chip" id="btnExpandir"><i class="fas fa-expand-alt"></i> Desplegar todo</button>
@@ -114,6 +125,7 @@
                             <span class="card-icon tarde-row-icon">
                                 <i class="fas {{ match (true) {
                                     ($fila['tipo'] ?? '') === 'temprano' => 'fa-sign-out-alt',
+                                    ($fila['respaldo'] ?? '') === 'ocasional' => 'fa-walking',
                                     ($fila['respaldo'] ?? '') === 'novedad' => 'fa-clipboard',
                                     ($fila['respaldo'] ?? '') === 'permiso' => 'fa-id-card',
                                     ($fila['respaldo'] ?? '') === 'incompleta' => 'fa-minus-circle',
@@ -128,9 +140,10 @@
                         <span>{{ $fila['dia_label'] }}</span>
                         <span>{{ $fila['entrada'] }}</span>
                         <span>{{ $fila['marco'] }}</span>
-                        <span class="{{ match ($fila['tipo'] ?? '') {
-                            'incompleta' => 'tarde-incomp',
-                            'temprano' => 'tarde-temprano',
+                        <span class="{{ match (true) {
+                            ($fila['tipo'] ?? '') === 'incompleta' => 'tarde-incomp',
+                            ($fila['tipo'] ?? '') === 'temprano' => 'tarde-temprano',
+                            ($fila['respaldo'] ?? '') === 'ocasional' => 'tarde-ok',
                             default => 'tarde-mins',
                         } }}">{{ $fila['tarde_label'] }}</span>
                         <span class="tarde-badges">

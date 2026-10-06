@@ -115,9 +115,10 @@ class LlegadaTardeExcelExporter
         $datos = [];
         foreach ($filas as $fila) {
             $fecha = $fila['fecha'] instanceof Carbon ? $fila['fecha']->format('d/m/Y') : '';
-            $tipo = match ($fila['tipo'] ?? '') {
-                'incompleta' => 'Marcación incompleta',
-                'temprano' => 'Salida temprano',
+            $tipo = match (true) {
+                ($fila['respaldo'] ?? '') === 'ocasional' => 'Salida ocasional',
+                ($fila['tipo'] ?? '') === 'incompleta' => 'Marcación incompleta',
+                ($fila['tipo'] ?? '') === 'temprano' => 'Salida temprano',
                 default => 'Llegada tarde',
             };
             $datos[] = [

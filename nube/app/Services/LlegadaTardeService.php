@@ -6,6 +6,7 @@ use App\Models\AccesoFestivo;
 use App\Models\AccesoHorarioItem;
 use App\Models\AccesoNovedad;
 use App\Models\AccesoRegistro;
+use App\Models\AccesoSalidaOcasional;
 use App\Models\AccesoTerminal;
 use App\Models\Empleado;
 use App\Models\Permiso;
@@ -14,6 +15,9 @@ use Illuminate\Support\Collection;
 
 class LlegadaTardeService
 {
+    /** Minutos extra sobre hora_regreso_esperada para no contar tarde la entrada de jornada 2. */
+    private const GRACIA_REGRESO_MIN = 5;
+
     public const MESES = [
         1 => 'Enero',
         2 => 'Febrero',
@@ -46,7 +50,7 @@ class LlegadaTardeService
     {
         $anio = max(2000, $anio);
         $mes = min(12, max(1, $mes));
-        $respaldo = in_array($respaldo, ['todos', 'sin', 'novedad', 'permiso', 'incompleta', 'temprano'], true) ? $respaldo : 'todos';
+        $respaldo = in_array($respaldo, ['todos', 'sin', 'novedad', 'permiso', 'ocasional', 'incompleta', 'temprano'], true) ? $respaldo : 'todos';
 
         $inicio = Carbon::create($anio, $mes, 1, 0, 0, 0, 'America/Bogota')->startOfMonth();
         $fin = $inicio->copy()->endOfMonth();
@@ -103,6 +107,7 @@ class LlegadaTardeService
         });
 
         $festivos = AccesoFestivo::mapaEntre($inicio, $fin);
+        $ocasionales = $this->ocasionalesPorEmpleado($empleadoIds, $inicio, $fin);
 
         $salidasTemprano = $salidas
             ->where('salio_temprano', '>', 0)
@@ -113,13 +118,13 @@ class LlegadaTardeService
             if ($this->esFestivo($this->fechaCarbon($registro->fecha), $festivos)) {
                 continue;
             }
-            $filas[] = $this->armarFila($registro, $novedades, $permisos);
+            $filas[] = $this->armarFila($registro, $novedades, $permisos, $ocasionales);
         }
         foreach ($salidasTemprano as $registro) {
             if ($this->esFestivo($this->fechaCarbon($registro->fecha), $festivos)) {
                 continue;
             }
-            $fila = $this->armarFila($registro, $novedades, $permisos);
+            $fila = $this->armarFila($registro, $novedades, $permisos, $ocasionales);
             if (($fila['tipo'] ?? '') === 'temprano' && (int) $fila['minutos'] <= 0) {
                 continue;
             }
@@ -160,12 +165,13 @@ class LlegadaTardeService
             return $fila['respaldo'] === $respaldo;
         }));
 
-        $tardes = array_filter($filas, fn ($f) => ($f['tipo'] ?? '') === 'tarde');
+        $tardes = array_filter($filas, fn ($f) => ($f['tipo'] ?? '') === 'tarde' && ($f['respaldo'] ?? '') !== 'ocasional');
         $tempranos = array_filter($filas, fn ($f) => ($f['tipo'] ?? '') === 'temprano');
         $incompletas = array_filter($filas, fn ($f) => ($f['tipo'] ?? '') === 'incompleta');
         $incidencias = array_merge($tardes, $tempranos);
         $minutos = (int) array_sum(array_column($incidencias, 'minutos'));
-        $justificadas = count(array_filter($incidencias, fn ($f) => in_array($f['respaldo'], ['novedad', 'permiso'], true)));
+        $justificadas = count(array_filter($incidencias, fn ($f) => in_array($f['respaldo'], ['novedad', 'permiso'], true)))
+            + count(array_filter($filas, fn ($f) => ($f['respaldo'] ?? '') === 'ocasional'));
         $sin = count(array_filter($incidencias, fn ($f) => $f['respaldo'] === 'sin'));
         $empleadosUnicos = count(array_unique(array_column($filas, 'empleado_id')));
 
@@ -278,9 +284,10 @@ class LlegadaTardeService
     /**
      * @param  Collection<int, AccesoNovedad>  $novedades
      * @param  Collection<int, Collection<int, Permiso>>  $permisos
+     * @param  Collection<int, Collection<int, AccesoSalidaOcasional>>  $ocasionales
      * @return array<string, mixed>
      */
-    private function armarFila(AccesoRegistro $registro, Collection $novedades, Collection $permisos): array
+    private function armarFila(AccesoRegistro $registro, Collection $novedades, Collection $permisos, Collection $ocasionales): array
     {
         $empleado = $registro->empleado;
         $fecha = $this->fechaCarbon($registro->fecha);
@@ -316,6 +323,62 @@ class LlegadaTardeService
             : (int) $registro->llego_tarde;
         $tipo = $esSalida ? 'temprano' : 'tarde';
         $autoriza = trim((string) ($novedad?->quien_autoriza ?? ''));
+        $horaLabel = $esSalida ? 'Debía salir' : 'Debía entrar';
+        $tardeLabel = $esSalida ? self::minutosLabel($minutos).' antes' : self::minutosLabel($minutos);
+        $respaldoLabel = match ($respaldo) {
+            'novedad' => 'Novedad',
+            'permiso' => 'Permiso',
+            default => 'Sin justificar',
+        };
+        $titulo = match (true) {
+            $esSalida && $respaldo === 'sin' => 'SALIDA TEMPRANO',
+            $respaldo === 'novedad' => 'NOVEDAD',
+            $respaldo === 'permiso' => 'PERMISO',
+            default => 'SIN RESPALDO',
+        };
+        $mensaje = match ($respaldo) {
+            'novedad' => ($motivo ?: 'Novedad').' · jornada '.$jornada.($autoriza !== '' ? ' · autoriza '.$autoriza : ''),
+            'permiso' => ($motivo ?: 'Permiso aprobado').' · jornada '.$jornada,
+            default => $esSalida
+                ? 'Salió antes de la hora de salida de la jornada '.$jornada
+                : 'No hay permiso ni novedad para esta jornada',
+        };
+        $pie = match ($respaldo) {
+            'novedad' => 'Hay novedad pendiente o aprobada en el kiosko para esta jornada.',
+            'permiso' => 'Hay un permiso aprobado de Workboard que cubre esta jornada.',
+            default => $esSalida
+                ? 'No hay permiso ni novedad que cubra esta salida anticipada.'
+                : 'No se encontró permiso aprobado ni novedad en el kiosko para este horario. Conviene verificar con el empleado.',
+        };
+
+        $ocasional = null;
+        if (! $esSalida && ($jornada === 2 || $registro->salida_ocasional_id)) {
+            $delEmpleado = $ocasionales->get($registro->empleado_id) ?? collect();
+            $ocasional = $this->ocasionalDentroDeGracia($registro, $delEmpleado);
+        }
+        if ($ocasional) {
+            $salidaEn = Carbon::parse($ocasional->salida_en)->timezone('America/Bogota');
+            $motivoOc = trim((string) $ocasional->motivo_texto);
+            if ($motivoOc === '') {
+                $motivoOc = 'Salida ocasional';
+            }
+            $autorizaOc = trim((string) $ocasional->autorizado_por);
+            $respaldo = 'ocasional';
+            $motivo = $motivoOc;
+            $intervalo = null;
+            $minutos = 0;
+            $horaLabel = 'Regreso esperado';
+            $esperada = self::horaLabel($ocasional->hora_regreso_esperada);
+            $tardeLabel = 'A tiempo';
+            $respaldoLabel = 'Salida ocasional';
+            $titulo = 'SALIDA OCASIONAL';
+            $mensaje = 'Llegó a la jornada 2 ('.self::horaLabel($registro->hora_esperada).') dentro del regreso pactado'
+                .' · salió '.self::horaLabel($salidaEn)
+                .' · esperado '.$esperada.' + '.self::GRACIA_REGRESO_MIN.' min'
+                .' · '.$motivoOc
+                .($autorizaOc !== '' ? ' · autoriza '.$autorizaOc : '');
+            $pie = 'No cuenta como llegada tarde: la entrada de la jornada 2 es el regreso de una salida ocasional y quedó dentro de la hora esperada más '.self::GRACIA_REGRESO_MIN.' minutos.';
+        }
 
         return [
             'id' => $registro->id,
@@ -330,40 +393,128 @@ class LlegadaTardeService
             'fecha' => $fecha,
             'dia_label' => $this->diaCorto($fecha),
             'jornada' => $jornada,
-            'hora_label' => $esSalida ? 'Debía salir' : 'Debía entrar',
+            'hora_label' => $horaLabel,
             'entrada' => $esperada,
             'marco' => $marco,
             'minutos' => $minutos,
-            'tarde_label' => $esSalida ? self::minutosLabel($minutos).' antes' : self::minutosLabel($minutos),
+            'tarde_label' => $tardeLabel,
             'respaldo' => $respaldo,
-            'respaldo_label' => match ($respaldo) {
-                'novedad' => 'Novedad',
-                'permiso' => 'Permiso',
-                default => 'Sin justificar',
-            },
+            'respaldo_label' => $respaldoLabel,
             'motivo' => $motivo,
             'permiso_intervalo' => $intervalo,
-            'titulo_detalle' => match (true) {
-                $esSalida && $respaldo === 'sin' => 'SALIDA TEMPRANO',
-                $respaldo === 'novedad' => 'NOVEDAD',
-                $respaldo === 'permiso' => 'PERMISO',
-                default => 'SIN RESPALDO',
-            },
-            'mensaje' => match ($respaldo) {
-                'novedad' => ($motivo ?: 'Novedad').' · jornada '.$jornada.($autoriza !== '' ? ' · autoriza '.$autoriza : ''),
-                'permiso' => ($motivo ?: 'Permiso aprobado').' · jornada '.$jornada,
-                default => $esSalida
-                    ? 'Salió antes de la hora de salida de la jornada '.$jornada
-                    : 'No hay permiso ni novedad para esta jornada',
-            },
-            'pie' => match ($respaldo) {
-                'novedad' => 'Hay novedad pendiente o aprobada en el kiosko para esta jornada.',
-                'permiso' => 'Hay un permiso aprobado de Workboard que cubre esta jornada.',
-                default => $esSalida
-                    ? 'No hay permiso ni novedad que cubra esta salida anticipada.'
-                    : 'No se encontró permiso aprobado ni novedad en el kiosko para este horario. Conviene verificar con el empleado.',
-            },
+            'titulo_detalle' => $titulo,
+            'mensaje' => $mensaje,
+            'pie' => $pie,
         ];
+    }
+
+    /**
+     * @param  Collection<int, int|string>  $empleadoIds
+     * @return Collection<int, Collection<int, AccesoSalidaOcasional>>
+     */
+    private function ocasionalesPorEmpleado(Collection $empleadoIds, Carbon $inicio, Carbon $fin): Collection
+    {
+        if ($empleadoIds->isEmpty()) {
+            return collect();
+        }
+
+        return AccesoSalidaOcasional::query()
+            ->whereIn('empleado_id', $empleadoIds)
+            ->where('salida_en', '<=', $fin->copy()->endOfDay())
+            ->where(function ($qb) use ($inicio) {
+                $qb->whereNull('regreso_en')
+                    ->orWhere('regreso_en', '>=', $inicio);
+            })
+            ->get()
+            ->groupBy('empleado_id');
+    }
+
+    /**
+     * Entrada de jornada 2 que es el regreso de una salida ocasional y cae
+     * hasta hora_regreso_esperada + 5 min. Si no, sigue contando como tarde.
+     *
+     * @param  Collection<int, AccesoSalidaOcasional>  $delEmpleado
+     */
+    private function ocasionalDentroDeGracia(AccesoRegistro $registro, Collection $delEmpleado): ?AccesoSalidaOcasional
+    {
+        if ($delEmpleado->isEmpty()) {
+            return null;
+        }
+
+        $marca = $this->marcaEn($registro);
+        if ($marca === null) {
+            return null;
+        }
+
+        $candidata = null;
+        if ($registro->salida_ocasional_id) {
+            $candidata = $delEmpleado->first(
+                fn (AccesoSalidaOcasional $ocasional) => (int) $ocasional->id === (int) $registro->salida_ocasional_id
+            );
+        }
+        if (! $candidata) {
+            $candidata = $delEmpleado
+                ->filter(function (AccesoSalidaOcasional $ocasional) use ($marca) {
+                    $salida = Carbon::parse($ocasional->salida_en)->timezone('America/Bogota');
+                    if ($salida->gt($marca)) {
+                        return false;
+                    }
+                    if ($ocasional->regreso_en) {
+                        $regreso = Carbon::parse($ocasional->regreso_en)->timezone('America/Bogota');
+                        if ($marca->gt($regreso->copy()->addMinutes(2))) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
+                ->sortByDesc(fn (AccesoSalidaOcasional $ocasional) => (string) $ocasional->salida_en)
+                ->first();
+        }
+        if (! $candidata instanceof AccesoSalidaOcasional) {
+            return null;
+        }
+
+        $salida = $candidata->salida_en
+            ? Carbon::parse($candidata->salida_en)->timezone('America/Bogota')
+            : null;
+        if ($salida !== null && $marca->lt($salida)) {
+            return null;
+        }
+
+        $limite = $this->regresoEsperadoEn($candidata);
+        if ($limite === null || $marca->gt($limite->addMinutes(self::GRACIA_REGRESO_MIN))) {
+            return null;
+        }
+
+        return $candidata;
+    }
+
+    private function regresoEsperadoEn(AccesoSalidaOcasional $ocasional): ?Carbon
+    {
+        if (! $ocasional->salida_en) {
+            return null;
+        }
+
+        $salida = Carbon::parse($ocasional->salida_en)->timezone('America/Bogota');
+        $esperado = $this->carbonHora($salida->copy()->startOfDay(), $ocasional->hora_regreso_esperada);
+        if ($esperado === null) {
+            return null;
+        }
+        if ($esperado->lt($salida)) {
+            $esperado->addDay();
+        }
+
+        return $esperado;
+    }
+
+    private function marcaEn(AccesoRegistro $registro): ?Carbon
+    {
+        if ($registro->registrado_en) {
+            return Carbon::parse($registro->registrado_en)->timezone('America/Bogota');
+        }
+
+        return $this->carbonHora($this->fechaCarbon($registro->fecha), $registro->hora);
     }
 
     private function minutosSalidaTemprano(AccesoRegistro $registro): int

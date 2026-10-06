@@ -153,9 +153,14 @@ input:focus,select:focus{outline:2px solid #bfdbfe;border-color:#2563eb}
 
 .tarde-legend{margin:8px 0 0;color:#64748b;font-size:13px;max-width:840px}
 .tarde-legend em{font-style:normal;font-weight:700}
+.leyenda-franjas{width:100%;max-width:720px;margin:10px 0 0;border-collapse:collapse;color:#334155;font-size:13px;line-height:1.35}
+.leyenda-franjas td{width:50%;padding:4px 20px 4px 0;vertical-align:top}
+.leyenda-item{display:flex;align-items:flex-start;gap:8px}
+.lg-dot{flex:none;width:8px;height:8px;margin-top:4px;border-radius:50%;background:currentColor}
 .lg-novedad{color:#15803d}
 .lg-permiso{color:#b45309}
 .lg-diligencia{color:#6d28d9}
+.lg-ocasional{color:#4338ca}
 .lg-sin{color:#9f1239}
 .lg-incompleta{color:#1d4ed8}
 .lg-temprano{color:#0f766e}
@@ -167,6 +172,7 @@ input:focus,select:focus{outline:2px solid #bfdbfe;border-color:#2563eb}
 .chip-sin.is-on{background:#fff1f2;border-color:#fecdd3;color:#9f1239}
 .chip-novedad.is-on{background:#ecfdf3;border-color:#bbf7d0;color:#15803d}
 .chip-permiso.is-on{background:#fffbeb;border-color:#fde68a;color:#b45309}
+.chip-ocasional.is-on{background:#eef2ff;border-color:#c7d2fe;color:#4338ca}
 .chip-diligencia.is-on{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}
 .chip-incompleta.is-on{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
 .chip-temprano.is-on{background:#f0fdfa;border-color:#99f6e4;color:#0f766e}
