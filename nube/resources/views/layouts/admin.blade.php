@@ -25,7 +25,10 @@
             <a href="{{ route('admin.empleados.index') }}" class="{{ request()->routeIs('admin.empleados.*') ? 'is-on' : '' }}"><i class="fas fa-users"></i> Empleados</a>
             <a href="{{ route('admin.novedades.index') }}" class="{{ request()->routeIs('admin.novedades.*') ? 'is-on' : '' }}"><i class="fas fa-clipboard-list"></i> Novedades</a>
             <a href="{{ route('admin.logs.index') }}" class="{{ request()->routeIs('admin.logs.*') ? 'is-on' : '' }}"><i class="fas fa-list-alt"></i> Logs</a>
-            <a href="{{ route('admin.llegadas-tarde.index') }}" class="{{ request()->routeIs('admin.llegadas-tarde.*') ? 'is-on' : '' }}"><i class="fas fa-user-clock"></i> Asistencia horaria</a>
+            <div class="side-folder">
+                <a href="{{ route('admin.llegadas-tarde.index') }}" class="{{ request()->routeIs('admin.llegadas-tarde.*') ? 'is-on' : '' }}"><i class="fas fa-user-clock"></i> Retrasos e Incidencias</a>
+                <a href="{{ route('admin.llegadas-temprano.index') }}" class="{{ request()->routeIs('admin.llegadas-temprano.*') ? 'is-on' : '' }}"><i class="fas fa-user-check"></i> Registros de Puntualidad</a>
+            </div>
             <a href="{{ route('admin.salidas-ocasionales.index') }}" class="{{ request()->routeIs('admin.salidas-ocasionales.*') ? 'is-on' : '' }}"><i class="fas fa-walking"></i> Salidas ocasionales</a>
         </nav>
         <form method="POST" action="{{ route('admin.logout') }}" class="side-out">

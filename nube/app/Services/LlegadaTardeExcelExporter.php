@@ -30,7 +30,7 @@ class LlegadaTardeExcelExporter
         $libro = new Spreadsheet;
         $libro->getProperties()
             ->setCreator('Control de acceso')
-            ->setTitle('Informe de Asistencia Horaria')
+            ->setTitle('Retrasos e Incidencias')
             ->setDescription('Informe completo de todos los empleados · '.$mesLabel);
 
         $this->llenarResumen($libro->getActiveSheet(), $informe, $mesLabel, $generado, count($filas));
@@ -38,7 +38,7 @@ class LlegadaTardeExcelExporter
 
         $libro->setActiveSheetIndex(0);
 
-        $archivo = 'asistencia-horaria-completo-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.xlsx';
+        $archivo = 'retrasos-incidencias-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.xlsx';
 
         return response()->streamDownload(function () use ($libro) {
             $writer = new Xlsx($libro);
@@ -57,7 +57,7 @@ class LlegadaTardeExcelExporter
         $hoja->setTitle('Resumen');
         $kpis = $informe['kpis'];
 
-        $hoja->setCellValue('A1', 'Informe de Asistencia Horaria');
+        $hoja->setCellValue('A1', 'Retrasos e Incidencias');
         $hoja->mergeCells('A1:B1');
         $hoja->getStyle('A1')->getFont()->setBold(true)->setSize(16);
 
@@ -159,7 +159,7 @@ class LlegadaTardeExcelExporter
             $hoja->getColumnDimension($col)->setAutoSize(true);
         }
 
-        $hoja->getHeaderFooter()->setOddHeader('&CInforme de Asistencia Horaria · '.$mesLabel.' · todos los empleados');
+        $hoja->getHeaderFooter()->setOddHeader('&CRetrasos e Incidencias · '.$mesLabel.' · todos los empleados');
         $hoja->getHeaderFooter()->setOddFooter('&LControl de acceso&RPágina &P de &N');
     }
 

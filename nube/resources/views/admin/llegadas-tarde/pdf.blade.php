@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Informe de Asistencia Horaria · {{ $mesLabel }}</title>
+    <title>Retrasos e Incidencias · {{ $mesLabel }}</title>
     <style>
         body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #0f172a; }
         h1 { font-size: 18px; margin: 0 0 4px; }
@@ -25,7 +25,7 @@
     </style>
 </head>
 <body>
-    <h1>Informe de Asistencia Horaria</h1>
+    <h1>Retrasos e Incidencias</h1>
     <p class="meta">{{ $mesLabel }} · {{ $empleadoNombre }} · generado {{ $generado }}</p>
 
     <table class="kpis">

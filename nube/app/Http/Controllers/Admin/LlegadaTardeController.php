@@ -35,7 +35,7 @@ class LlegadaTardeController extends Controller
             'generado' => LlegadaTardeService::fechaHoraLabel(now('America/Bogota')),
         ])->setPaper('a4', 'landscape');
 
-        $archivo = 'asistencia-horaria-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.pdf';
+        $archivo = 'retrasos-incidencias-'.$informe['anio'].'-'.str_pad((string) $informe['mes'], 2, '0', STR_PAD_LEFT).'.pdf';
 
         return $pdf->download($archivo);
     }

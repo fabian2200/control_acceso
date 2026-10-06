@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\EmpleadoController;
 use App\Http\Controllers\Admin\FestivoController;
 use App\Http\Controllers\Admin\HorarioController;
 use App\Http\Controllers\Admin\LlegadaTardeController;
+use App\Http\Controllers\Admin\LlegadaTempranoController;
 use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\Admin\NovedadController;
@@ -60,6 +61,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/llegadas-tarde', [LlegadaTardeController::class, 'index'])->name('llegadas-tarde.index');
         Route::get('/llegadas-tarde/pdf', [LlegadaTardeController::class, 'pdf'])->name('llegadas-tarde.pdf');
         Route::get('/llegadas-tarde/excel', [LlegadaTardeController::class, 'excel'])->name('llegadas-tarde.excel');
+
+        Route::get('/llegadas-temprano', [LlegadaTempranoController::class, 'index'])->name('llegadas-temprano.index');
 
         Route::get('/salidas-ocasionales', [SalidaOcasionalController::class, 'index'])->name('salidas-ocasionales.index');
         Route::get('/salidas-ocasionales/pdf', [SalidaOcasionalController::class, 'pdf'])->name('salidas-ocasionales.pdf');

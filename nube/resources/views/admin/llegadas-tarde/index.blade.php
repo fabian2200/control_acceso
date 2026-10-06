@@ -1,8 +1,8 @@
 @extends('layouts.admin')
 
-@section('title', 'Asistencia horaria')
+@section('title', 'Retrasos e Incidencias')
 @section('crumb', 'Informe')
-@section('heading', 'Informe de Asistencia Horaria')
+@section('heading', 'Retrasos e Incidencias')
 
 @section('actions')
     <a href="{{ route('admin.llegadas-tarde.pdf', request()->query()) }}" class="btn-primary"><i class="fas fa-file-pdf"></i> Exportar PDF</a>
